@@ -30,7 +30,6 @@ export const actions: ButtonAction[] = [
     { id: "openPluginSettings", label: "Open Plugin tab", callback: () => SettingsRouter.openUserSettings("equicord_plugins_panel"), registrar: "Equicord" },
     { id: "openThemesSettings", label: "Open Themes tab", callback: () => SettingsRouter.openUserSettings("equicord_themes_panel"), registrar: "Equicord" },
     { id: "openUpdaterSettings", label: "Open Updater tab", callback: () => SettingsRouter.openUserSettings("equicord_updater_panel"), registrar: "Equicord" },
-    { id: "openEquicordCloudSettings", label: "Open Cloud tab", callback: () => SettingsRouter.openUserSettings("equicord_cloud_panel"), registrar: "Equicord" },
     { id: "openBackupSettings", label: "Open Backup & Restore tab", callback: () => SettingsRouter.openUserSettings("equicord_backup_restore_panel"), registrar: "Equicord" },
     { id: "restartClient", label: "Restart Client", callback: () => relaunch(), registrar: "Equicord" },
     { id: "openQuickCSSFile", label: "Open Quick CSS File", callback: () => VencordNative.quickCss.openEditor(), registrar: "Equicord" },

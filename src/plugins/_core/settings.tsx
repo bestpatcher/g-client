@@ -223,13 +223,6 @@ export default definePlugin({
                 Icon: LogIcon,
             }),
             buildEntry({
-                key: "equicord_cloud",
-                title: "Cloud",
-                panelTitle: "Equicord Cloud",
-                Component: CloudTab,
-                Icon: CloudIcon
-            }),
-            buildEntry({
                 key: "equicord_backup_restore",
                 title: "Backup & Restore",
                 Component: BackupAndRestoreTab,
