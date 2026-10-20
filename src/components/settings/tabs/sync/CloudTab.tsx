@@ -96,12 +96,6 @@ function CloudTab() {
                 Equicord's cloud integration allows you to sync your settings across multiple devices and Discord installations. Your data is securely stored and can be easily restored at any time.
             </Paragraph>
 
-            <Notice.Info className={Margins.bottom16}>
-                We use our own <Link href="https://github.com/Equicord/Equicloud">Equicloud backend</Link> with enhanced features.
-                View our <Link href="https://equicord.org/cloud/policy">privacy policy</Link> to see what we store and how we use your data.
-                Equicloud is BSD 3.0 licensed, so you can self-host if preferred.
-            </Notice.Info>
-
             <FormSwitch
                 title="Enable Cloud Integration"
                 description="Connect to the cloud backend for settings synchronization. This will request authorization if you haven't set up cloud integration yet."

@@ -532,25 +532,6 @@ function ChangelogContent() {
                 </ErrorCard>
             )}
 
-            <Divider className={Margins.top20} />
-
-            <Heading className={Margins.top20}>Repository</Heading>
-            <Paragraph className={Margins.bottom8}>
-                This is the GitHub repository where Equicord fetches updates from.
-            </Paragraph>
-            <Paragraph color="text-subtle">
-                {repoPending ? (
-                    repo
-                ) : repoErr ? (
-                    "Failed to retrieve - check console"
-                ) : (
-                    <Link href={repo}>
-                        {repo.split("/").slice(-2).join("/")}
-                    </Link>
-                )}
-                {" "}(<HashLink repo={repo} hash={gitHash} disabled={repoPending} />)
-            </Paragraph>
-
             {hasCurrentChanges && (
                 <>
                     <Divider className={Margins.top20} />

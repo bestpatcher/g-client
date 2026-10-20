@@ -177,17 +177,7 @@ function EquicordSettings() {
                 >
                     <DonateButtonComponent donated={true} />
                 </SpecialCard>
-            ) : (
-                <SpecialCard
-                    title="Support the Project"
-                    description="Please consider supporting the development of Equicord by donating!"
-                    cardImage={donateImage}
-                    backgroundImage={DONOR_BACKGROUND_IMAGE}
-                    backgroundColor="#c3a3ce"
-                >
-                    <DonateButtonComponent />
-                </SpecialCard>
-            )}
+            ) : null}
             {isAnyPluginDev(user?.id) && (
                 <SpecialCard
                     title="Contributions"
@@ -240,15 +230,6 @@ function EquicordSettings() {
                         action={() => VencordNative.settings.openFolder()}
                     />
                 )}
-                <QuickAction
-                    Icon={GithubIcon}
-                    text="View Source Code"
-                    action={() =>
-                        VencordNative.native.openExternal(
-                            "https://github.com/" + gitRemote,
-                        )
-                    }
-                />
             </QuickActionCard>
 
             <Divider className={Margins.top20} />
