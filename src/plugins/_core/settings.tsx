@@ -203,6 +203,7 @@ export default definePlugin({
                 Component: PluginsTab,
                 Icon: PluginsIcon
             }),
+            ...this.customEntries.filter(e => e.key === "equicord_lowz_modules").map(buildEntry),
             buildEntry({
                 key: "equicord_themes",
                 title: "Themes",
@@ -234,7 +235,7 @@ export default definePlugin({
                 Component: PatchHelperTab,
                 Icon: PatchHelperIcon
             }),
-            ...this.customEntries.map(buildEntry)
+            ...this.customEntries.filter(e => e.key !== "equicord_lowz_modules").map(buildEntry)
         ].filter(isTruthy);
 
         const equicordSection: SettingsLayoutNode = {
