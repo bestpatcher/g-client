@@ -57,9 +57,28 @@ const settings = definePluginSettings({
     }
 });
 
-function applyMicBoost(volume: number) {
-    FluxDispatcher.dispatch({ type: "AUDIO_SET_INPUT_VOLUME", volume });
-    logger.info("Mic volume set to", volume, "store now says", MediaEngineStore.getInputVolume());
+let boostResult = "not applied";
+
+// Discord clamps its own store to 100, so values above that go straight to the audio engine.
+function applyMicBoost(volume: number = settings.store.micBoost) {
+    if (volume <= 100) {
+        FluxDispatcher.dispatch({ type: "AUDIO_SET_INPUT_VOLUME", volume });
+        boostResult = "normal volume";
+        return;
+    }
+    const engine: Loose | undefined = (MediaEngineStore as Loose).getMediaEngine?.();
+    if (typeof engine?.setInputVolume !== "function") {
+        boostResult = "engine has no setInputVolume";
+        logger.warn(boostResult, engine && Object.getOwnPropertyNames(Object.getPrototypeOf(engine)).filter(n => /volume|gain/i.test(n)));
+        return;
+    }
+    try {
+        engine.setInputVolume(volume);
+        boostResult = `engine accepted ${volume}`;
+    } catch (e) {
+        boostResult = `engine threw: ${String(e)}`;
+        logger.error("Failed to boost mic", e);
+    }
 }
 
 // ---------- Fake mute / fake deafen ----------
@@ -241,7 +260,7 @@ function buildReport() {
     const first = list[0];
     return JSON.stringify({
         plugin: "GVoice diagnostics v4",
-        micBoost: { setting: settings.store.micBoost, storeVolume: MediaEngineStore.getInputVolume() },
+        micBoost: { setting: settings.store.micBoost, storeVolume: MediaEngineStore.getInputVolume(), result: boostResult },
         sender: { found: Boolean(senderName), name: senderName, argCount: senderArgs.length },
         patchHits,
         lastRealMute,
@@ -409,13 +428,20 @@ export default definePlugin({
     flux: {
         RTC_CONNECTION_STATE() {
             wrapAllConnections();
+            if (settings.store.micBoost > 100) applyMicBoost();
+        },
+        AUDIO_SET_INPUT_VOLUME() {
+            if (settings.store.micBoost > 100) applyMicBoost();
+        },
+        AUDIO_SET_INPUT_DEVICE() {
+            if (settings.store.micBoost > 100) applyMicBoost();
         }
     },
 
     start() {
         logger.info("GVoice started");
         installSendHook();
-        if (settings.store.micBoost > 100) applyMicBoost(settings.store.micBoost);
+        if (settings.store.micBoost > 100) applyMicBoost();
         addUserAreaButton("g-fake-mute", fakeMuteFactory, 90);
         addUserAreaButton("g-fake-deafen", fakeDeafenFactory, 91);
         addUserAreaButton("g-mic-mode", micModeFactory, 92);
