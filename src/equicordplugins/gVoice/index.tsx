@@ -5,11 +5,13 @@
  */
 
 import { definePluginSettings } from "@api/Settings";
+import { Button } from "@components/Button";
 import { addUserAreaButton, removeUserAreaButton, UserAreaButton, UserAreaButtonFactory, UserAreaRenderProps } from "@api/UserArea";
 import { EquicordDevs } from "@utils/constants";
+import { copyWithToast } from "@utils/discord";
 import { Logger } from "@utils/Logger";
 import definePlugin, { OptionType } from "@utils/types";
-import { MediaEngineStore } from "@webpack/common";
+import { MediaEngineStore, showToast, Toasts } from "@webpack/common";
 
 const logger = new Logger("GVoice");
 
@@ -36,6 +38,14 @@ const settings = definePluginSettings({
         description: "Show everyone that you are deafened and muted. You can still hear and talk.",
         default: false,
         onChange: () => resendVoiceState()
+    },
+    diagnostics: {
+        type: OptionType.COMPONENT,
+        component: () => (
+            <Button type="button" variant="secondary" onClick={() => copyWithToast(buildReport(), "Diagnostics copied.")}>
+                Copy diagnostics
+            </Button>
+        )
     }
 });
 
@@ -47,6 +57,17 @@ let originalSend: WebSocket["send"] | null = null;
 let gatewaySocket: WebSocket | null = null;
 let realVoiceState: Loose | null = null;
 let warnedBinary = false;
+
+const stats = {
+    gatewayUrl: "",
+    stringSends: 0,
+    binarySends: 0,
+    ops: {} as Record<string, number>,
+    op4Seen: 0,
+    lastOp4Keys: [] as string[],
+    lastOp4Real: null as Loose | null,
+    lastOp4Sent: null as Loose | null
+};
 
 function withFakeState(d: Loose): Loose {
     const out = { ...d };
@@ -66,6 +87,16 @@ function installSendHook() {
     originalSend = orig;
 
     WebSocket.prototype.send = function (this: WebSocket, data: any) {
+        const isGateway = Boolean(this.url?.includes("gateway"));
+        if (isGateway) {
+            stats.gatewayUrl = this.url.split("?")[0] + (this.url.includes("encoding=") ? "?" + this.url.split("?")[1] : "");
+            if (typeof data === "string") {
+                stats.stringSends++;
+                const op = /"op":\s*(\d+)/.exec(data.slice(0, 80))?.[1];
+                if (op) stats.ops[op] = (stats.ops[op] ?? 0) + 1;
+            } else stats.binarySends++;
+        }
+
         if (typeof data === "string") {
             if (data.includes("\"op\":4")) {
                 try {
@@ -73,7 +104,13 @@ function installSendHook() {
                     if (msg?.op === 4 && msg.d && "self_mute" in msg.d) {
                         gatewaySocket = this;
                         realVoiceState = { ...msg.d };
-                        data = JSON.stringify({ ...msg, d: withFakeState(msg.d) });
+                        const sent = withFakeState(msg.d);
+                        stats.op4Seen++;
+                        stats.lastOp4Keys = Object.keys(msg.d);
+                        stats.lastOp4Real = { self_mute: msg.d.self_mute, self_deaf: msg.d.self_deaf };
+                        stats.lastOp4Sent = { self_mute: sent.self_mute, self_deaf: sent.self_deaf };
+                        logger.info("Voice state sent", stats.lastOp4Real, "->", stats.lastOp4Sent);
+                        data = JSON.stringify({ ...msg, d: sent });
                     }
                 } catch (e) {
                     logger.error("Failed to process voice state message", e);
@@ -98,6 +135,7 @@ function resendVoiceState() {
 
 const wrappedConnections = new Map<Loose, (options: Loose) => unknown>();
 const lastOptions = new WeakMap<Loose, Loose>();
+const transportLog: Loose[] = [];
 
 function withChannels(options: Loose): Loose {
     if (settings.store.micMode !== "stereo" || !options?.audioEncoder) return options;
@@ -112,6 +150,13 @@ function wrapConnection(connection: Loose) {
 
     connection.setTransportOptions = function (this: Loose, options: Loose) {
         lastOptions.set(connection, options);
+        transportLog.push({
+            keys: Object.keys(options ?? {}),
+            encoderKeys: options?.audioEncoder ? Object.keys(options.audioEncoder) : null,
+            channelsBefore: options?.audioEncoder?.channels,
+            stereoMode: settings.store.micMode === "stereo"
+        });
+        if (transportLog.length > 8) transportLog.shift();
         return orig.call(this, withChannels(options));
     };
     logger.info("Wrapped a voice connection for stereo support");
@@ -132,6 +177,36 @@ function reapplyTransportOptions() {
         const options = lastOptions.get(connection);
         if (options) connection.setTransportOptions(options);
     }
+}
+
+function buildReport() {
+    const engine = (MediaEngineStore as Loose).getMediaEngine?.();
+    const connections = engine?.connections;
+    const list = connections ? Array.from<Loose>(connections.values?.() ?? connections) : [];
+    const first = list[0];
+    return JSON.stringify({
+        plugin: "GVoice diagnostics v2",
+        settings: { micMode: settings.store.micMode, fakeMute: settings.store.fakeMute, fakeDeafen: settings.store.fakeDeafen },
+        sendHookInstalled: Boolean(originalSend),
+        socketCaptured: Boolean(gatewaySocket),
+        gateway: stats,
+        engine: {
+            hasGetMediaEngine: typeof (MediaEngineStore as Loose).getMediaEngine,
+            engineKeys: engine ? Object.keys(engine).slice(0, 50) : null,
+            connectionsType: connections?.constructor?.name ?? null,
+            connectionCount: list.length,
+            wrapped: wrappedConnections.size,
+            connectionKeys: first ? Object.keys(first).slice(0, 50) : null,
+            connectionMethods: first
+                ? Object.getOwnPropertyNames(Object.getPrototypeOf(first)).filter(n => /option|encoder|transport|audio|channel|stereo/i.test(n))
+                : null
+        },
+        transportLog
+    }, null, 2);
+}
+
+function notify(message: string) {
+    showToast(message, Toasts.Type.SUCCESS);
 }
 
 // ---------- Buttons next to mute and deafen ----------
@@ -177,7 +252,11 @@ function FakeMuteButton({ iconForeground, hideTooltips, nameplate }: UserAreaRen
             aria-checked={fakeMute}
             redGlow={fakeMute}
             plated={nameplate != null}
-            onClick={() => { settings.store.fakeMute = !settings.store.fakeMute; resendVoiceState(); }}
+            onClick={() => {
+                settings.store.fakeMute = !settings.store.fakeMute;
+                notify(`Fake mute ${settings.store.fakeMute ? "on" : "off"}${gatewaySocket ? "" : ". It applies when you join a voice channel"}`);
+                resendVoiceState();
+            }}
         />
     );
 }
@@ -192,7 +271,11 @@ function FakeDeafenButton({ iconForeground, hideTooltips, nameplate }: UserAreaR
             aria-checked={fakeDeafen}
             redGlow={fakeDeafen}
             plated={nameplate != null}
-            onClick={() => { settings.store.fakeDeafen = !settings.store.fakeDeafen; resendVoiceState(); }}
+            onClick={() => {
+                settings.store.fakeDeafen = !settings.store.fakeDeafen;
+                notify(`Fake deafen ${settings.store.fakeDeafen ? "on" : "off"}${gatewaySocket ? "" : ". It applies when you join a voice channel"}`);
+                resendVoiceState();
+            }}
         />
     );
 }
@@ -208,7 +291,11 @@ function MicModeButton({ iconForeground, hideTooltips, nameplate }: UserAreaRend
             aria-checked={stereo}
             orangeGlow={stereo}
             plated={nameplate != null}
-            onClick={() => { settings.store.micMode = stereo ? "mono" : "stereo"; reapplyTransportOptions(); }}
+            onClick={() => {
+                settings.store.micMode = stereo ? "mono" : "stereo";
+                notify(`Microphone: ${stereo ? "Mono" : "Stereo"}. Rejoin the voice channel to apply`);
+                reapplyTransportOptions();
+            }}
         />
     );
 }
@@ -233,6 +320,7 @@ export default definePlugin({
     },
 
     start() {
+        logger.info("GVoice started");
         installSendHook();
         addUserAreaButton("g-fake-mute", fakeMuteFactory, 90);
         addUserAreaButton("g-fake-deafen", fakeDeafenFactory, 91);
