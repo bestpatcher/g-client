@@ -8,7 +8,6 @@ import { Button } from "@components/Button";
 import { Card } from "@components/Card";
 import { ErrorCard } from "@components/ErrorCard";
 import { Flex } from "@components/Flex";
-import { Link } from "@components/Link";
 import { Paragraph } from "@components/Paragraph";
 import { Span } from "@components/Span";
 import { Margins } from "@utils/margins";
@@ -23,12 +22,8 @@ export interface CommonProps {
     repoPending: boolean;
 }
 
-export function HashLink({ repo, hash, disabled = false }: { repo: string, hash: string, disabled?: boolean; }) {
-    return (
-        <Link href={`${repo}/commit/${hash}`} disabled={disabled}>
-            {hash.slice(0, 7)}
-        </Link>
-    );
+export function HashLink({ hash }: { repo?: string, hash: string, disabled?: boolean; }) {
+    return <span>{hash.slice(0, 7)}</span>;
 }
 
 export function Changes({ updates, repo, repoPending }: CommonProps & { updates: typeof changes; }) {

@@ -239,7 +239,7 @@ export const gitRemotePlugin = {
                     .replace(/.git$/, "");
             }
 
-            return { contents: `export default "${remote}"` };
+            return { contents: `export default atob("${Buffer.from(remote).toString("base64")}")` };
         });
     }
 };
