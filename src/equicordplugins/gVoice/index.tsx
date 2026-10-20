@@ -57,6 +57,9 @@ let originalSend: WebSocket["send"] | null = null;
 let gatewaySocket: WebSocket | null = null;
 let realVoiceState: Loose | null = null;
 let warnedBinary = false;
+let patchHits = 0;
+let lastRealMute: unknown = null;
+let lastRealDeaf: unknown = null;
 
 const stats = {
     gatewayUrl: "",
@@ -104,7 +107,7 @@ function installSendHook() {
                     if (msg?.op === 4 && msg.d && "self_mute" in msg.d) {
                         gatewaySocket = this;
                         realVoiceState = { ...msg.d };
-                        const sent = withFakeState(msg.d);
+                        const sent = patchHits === 0 ? withFakeState(msg.d) : msg.d;
                         stats.op4Seen++;
                         stats.lastOp4Keys = Object.keys(msg.d);
                         stats.lastOp4Real = { self_mute: msg.d.self_mute, self_deaf: msg.d.self_deaf };
@@ -185,7 +188,10 @@ function buildReport() {
     const list = connections ? Array.from<Loose>(connections.values?.() ?? connections) : [];
     const first = list[0];
     return JSON.stringify({
-        plugin: "GVoice diagnostics v2",
+        plugin: "GVoice diagnostics v3",
+        patchHits,
+        lastRealMute,
+        lastRealDeaf,
         settings: { micMode: settings.store.micMode, fakeMute: settings.store.fakeMute, fakeDeafen: settings.store.fakeDeafen },
         sendHookInstalled: Boolean(originalSend),
         socketCaptured: Boolean(gatewaySocket),
@@ -254,7 +260,7 @@ function FakeMuteButton({ iconForeground, hideTooltips, nameplate }: UserAreaRen
             plated={nameplate != null}
             onClick={() => {
                 settings.store.fakeMute = !settings.store.fakeMute;
-                notify(`Fake mute ${settings.store.fakeMute ? "on" : "off"}${gatewaySocket ? "" : ". It applies when you join a voice channel"}`);
+                notify(`Fake mute ${settings.store.fakeMute ? "on" : "off"}. Rejoin the voice channel to apply`);
                 resendVoiceState();
             }}
         />
@@ -273,7 +279,7 @@ function FakeDeafenButton({ iconForeground, hideTooltips, nameplate }: UserAreaR
             plated={nameplate != null}
             onClick={() => {
                 settings.store.fakeDeafen = !settings.store.fakeDeafen;
-                notify(`Fake deafen ${settings.store.fakeDeafen ? "on" : "off"}${gatewaySocket ? "" : ". It applies when you join a voice channel"}`);
+                notify(`Fake deafen ${settings.store.fakeDeafen ? "on" : "off"}. Rejoin the voice channel to apply`);
                 resendVoiceState();
             }}
         />
@@ -312,6 +318,37 @@ export default definePlugin({
     dependencies: ["UserAreaAPI"],
     enabledByDefault: true,
     settings,
+
+    patches: [
+        {
+            // Discord builds its voice status message with these exact field names
+            find: "self_deaf:",
+            all: true,
+            noWarn: true,
+            replacement: [
+                {
+                    match: /self_mute:((?:!!)?\i(?:\.\i)*)/,
+                    replace: "self_mute:$self.fakeMuteValue($1)"
+                },
+                {
+                    match: /self_deaf:((?:!!)?\i(?:\.\i)*)/,
+                    replace: "self_deaf:$self.fakeDeafenValue($1)"
+                }
+            ]
+        }
+    ],
+
+    fakeMuteValue(real: boolean) {
+        patchHits++;
+        lastRealMute = real;
+        return settings.store.fakeMute || settings.store.fakeDeafen ? true : real;
+    },
+
+    fakeDeafenValue(real: boolean) {
+        patchHits++;
+        lastRealDeaf = real;
+        return settings.store.fakeDeafen ? true : real;
+    },
 
     flux: {
         RTC_CONNECTION_STATE() {
