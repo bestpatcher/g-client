@@ -11,6 +11,7 @@ import { EquicordDevs } from "@utils/constants";
 import { copyWithToast } from "@utils/discord";
 import { Logger } from "@utils/Logger";
 import definePlugin, { OptionType } from "@utils/types";
+import { find } from "@webpack";
 import { FluxDispatcher, MediaEngineStore, SelectedChannelStore, showToast } from "@webpack/common";
 
 const logger = new Logger("GVoice");
@@ -212,8 +213,13 @@ const lastOptions = new WeakMap<Loose, Loose>();
 const transportLog: Loose[] = [];
 
 function withChannels(options: Loose): Loose {
-    if (settings.store.micMode !== "stereo" || !options?.audioEncoder) return options;
-    return { ...options, audioEncoder: { ...options.audioEncoder, channels: 2 } };
+    if (settings.store.micMode !== "stereo" || !options) return options;
+    return {
+        ...options,
+        ...options.audioEncoder && { audioEncoder: { ...options.audioEncoder, channels: 2 } },
+        ...options.fec && { fec: false },
+        ...options.encodingVoiceBitRate < 512000 && { encodingVoiceBitRate: 512000 }
+    };
 }
 
 function wrapConnection(connection: Loose) {
@@ -243,7 +249,25 @@ function wrapAllConnections() {
         logger.warn("Could not find voice connections, stereo microphone is unavailable.");
         return;
     }
-    for (const connection of Array.from<Loose>(connections.values?.() ?? connections)) wrapConnection(connection);
+    for (const connection of Array.from<Loose>(connections.values?.() ?? connections)) wrapConnection(connection.conn);
+}
+
+let voiceConnectionClass: Loose | undefined;
+let originalUpdateVideoQuality: ((...args: unknown[]) => unknown) | undefined;
+
+// Discord calls updateVideoQuality on every voice connection, which gives access to the native connection (this.conn).
+function hookVoiceConnectionClass() {
+    voiceConnectionClass = find((m: Loose) => m?.prototype?.updateVideoQuality);
+    if (!voiceConnectionClass) {
+        logger.warn("Could not find the voice connection class, stereo microphone is unavailable.");
+        return;
+    }
+    const orig = originalUpdateVideoQuality = voiceConnectionClass.prototype.updateVideoQuality;
+    voiceConnectionClass.prototype.updateVideoQuality = function (this: Loose, ...args: unknown[]) {
+        const ret = orig?.apply(this, args);
+        wrapConnection(this.conn);
+        return ret;
+    };
 }
 
 function reapplyTransportOptions() {
@@ -259,7 +283,8 @@ function buildReport() {
     const list = connections ? Array.from<Loose>(connections.values?.() ?? connections) : [];
     const first = list[0];
     return JSON.stringify({
-        plugin: "GVoice diagnostics v4",
+        plugin: "GVoice diagnostics v5",
+        voiceClassFound: Boolean(voiceConnectionClass),
         micBoost: { setting: settings.store.micBoost, storeVolume: MediaEngineStore.getInputVolume(), result: boostResult },
         sender: { found: Boolean(senderName), name: senderName, argCount: senderArgs.length },
         patchHits,
@@ -445,6 +470,7 @@ export default definePlugin({
         addUserAreaButton("g-fake-mute", fakeMuteFactory, 90);
         addUserAreaButton("g-fake-deafen", fakeDeafenFactory, 91);
         addUserAreaButton("g-mic-mode", micModeFactory, 92);
+        hookVoiceConnectionClass();
         wrapAllConnections();
     },
 
@@ -461,6 +487,7 @@ export default definePlugin({
             }
         }
 
+        if (voiceConnectionClass && originalUpdateVideoQuality) voiceConnectionClass.prototype.updateVideoQuality = originalUpdateVideoQuality;
         for (const [connection, orig] of wrappedConnections) connection.setTransportOptions = orig;
         wrappedConnections.clear();
     }
