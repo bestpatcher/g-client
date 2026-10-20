@@ -4,6 +4,8 @@
  * SPDX-License-Identifier: GPL-3.0-or-later
  */
 
+import "./style.css";
+
 import { EquicordDevs } from "@utils/constants";
 import definePlugin from "@utils/types";
 
@@ -15,15 +17,11 @@ export default definePlugin({
     authors: [EquicordDevs.nobody],
     required: true,
 
-    patches: [{
-        find: "1.6 5.64-2.87",
-        replacement: {
-            match: /(?<=function \i\(\i\)\{)(?=.{0,500}?1\.6 5\.64-2\.87)/,
-            replace: "return $self.logo(arguments[0]);"
-        }
-    }],
+    start() {
+        document.documentElement.style.setProperty("--vc-glogo-image", `url("${LOGO}")`);
+    },
 
-    logo({ width = 24, height = 24 }: { width?: number; height?: number; }) {
-        return <img src={LOGO} width={width} height={height} alt="" />;
+    stop() {
+        document.documentElement.style.removeProperty("--vc-glogo-image");
     }
 });

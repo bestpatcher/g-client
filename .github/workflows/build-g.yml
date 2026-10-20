@@ -23,7 +23,7 @@ jobs:
         run: node g-rename.mjs
 
       - name: Build
-        run: pnpm buildStandalone
+        run: pnpm buildStandalone --disable-updater
 
       - name: Publish release
         env:
