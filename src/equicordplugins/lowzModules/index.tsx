@@ -24,7 +24,7 @@ function LowzModulesTab() {
     const [message, setMessage] = useState("");
     const [done, setDone] = useState(false);
 
-    async function run(action: typeof Native.changeModules) {
+    async function run(action: typeof Native.changeModules | typeof Native.stereoDefault) {
         setBusy(true);
         const res = await action();
         setBusy(false);
@@ -36,12 +36,12 @@ function LowzModulesTab() {
         <SettingsTab>
             <Heading>Lowz Modules</Heading>
             <Paragraph className={Margins.bottom16}>
-                Replaces your voice modules with the Lowz ones. Your original files are kept, so you can switch back any time.
+                Change Modules installs the Lowz voice modules. Stereo Default installs the stereo default voice modules. Your original files are saved the first time you use either button.
             </Paragraph>
             <div className={Margins.bottom16}>
                 <Button disabled={busy} onClick={() => run(Native.changeModules)}>Change Modules</Button>
                 {" "}
-                <Button variant="secondary" disabled={busy} onClick={() => run(Native.restoreModules)}>Restore Original</Button>
+                <Button variant="secondary" disabled={busy} onClick={() => run(Native.stereoDefault)}>Stereo Default</Button>
             </div>
             {message && <Paragraph className={Margins.bottom16}>{message}</Paragraph>}
             {done && <Button onClick={relaunch}>Restart Discord</Button>}
