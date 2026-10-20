@@ -18,11 +18,11 @@ export default definePlugin({
     dependencies: ["BadgeAPI"],
     required: true,
 
-    userProfileBadge: {
+    userProfileBadges: [{
         id: "g-early-supporter",
         description: "Early Supporter",
         iconSrc: "https://cdn.discordapp.com/badge-icons/7060786766c9c840eb3019e725d2b358.png",
         position: BadgePosition.START,
         shouldShow: isMe
-    }
+    }]
 });
