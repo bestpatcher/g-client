@@ -12,7 +12,6 @@ import { relaunch, showItemInFolder } from "@utils/native";
 import { checkForUpdates, getRepo } from "@utils/updater";
 import { GuildStore, NavigationRouter, SettingsRouter, showToast } from "@webpack/common";
 
-import gitRemote from "~git-remote";
 import Plugins from "~plugins";
 
 import { openMultipleChoice } from "./components/MultipleChoice";
@@ -106,7 +105,7 @@ export const actions: ButtonAction[] = [
 
     {
         id: "copyGitInfo", label: "Copy Git Info", callback: async () => {
-            copyToClipboard(`gitHash: ${gitHashShort}\ngitRemote: ${gitRemote}`);
+            copyToClipboard(`gitHash: ${gitHashShort}`);
 
             showToast({
                 text: "Copied git info to clipboard!",
