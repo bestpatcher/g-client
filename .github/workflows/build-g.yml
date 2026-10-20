@@ -5,6 +5,8 @@ on:
 permissions:
   contents: write
 
+concurrency: build-g
+
 jobs:
   build:
     runs-on: ubuntu-latest
@@ -30,5 +32,9 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           HASH=$(git rev-parse --short HEAD)
-          gh release delete latest --yes --cleanup-tag || true
-          gh release create latest dist/desktop.asar --title "G $HASH" --notes "G client build $HASH" --target "${{ github.sha }}"
+          if gh release view latest >/dev/null 2>&1; then
+            gh release upload latest dist/desktop.asar --clobber
+            gh release edit latest --title "G $HASH" --notes "G client build $HASH"
+          else
+            gh release create latest dist/desktop.asar --title "G $HASH" --notes "G client build $HASH" --target "${{ github.sha }}"
+          fi
