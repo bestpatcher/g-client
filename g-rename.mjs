@@ -73,7 +73,7 @@ function* walkAll(dir) {
     }
 }
 let logos = 0;
-for (const file of [...walkAll("src")].filter(f => /\.(tsx?|html)$/.test(f))) {
+for (const file of [...walkAll("src")].filter(f => /\.(tsx?|html|css)$/.test(f))) {
     const text = readFileSync(file, "utf8");
     if (!text.includes(LOGO_URL)) continue;
     logos += text.split(LOGO_URL).length - 1;

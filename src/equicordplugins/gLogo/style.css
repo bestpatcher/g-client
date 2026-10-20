@@ -1,5 +1,5 @@
 [data-list-item-id="guildsnav___home"] > div {
-    background: var(--vc-glogo-image) center / 70% no-repeat !important; /* Replaces the blue Discord home button background */
+    background: url("https://equicord.org/assets/favicon.png") center / 70% no-repeat !important; /* Replaces the blue Discord home button background */
 }
 
 [data-list-item-id="guildsnav___home"] > div svg {
