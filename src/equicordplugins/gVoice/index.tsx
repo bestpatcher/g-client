@@ -11,7 +11,7 @@ import { EquicordDevs } from "@utils/constants";
 import { copyWithToast } from "@utils/discord";
 import { Logger } from "@utils/Logger";
 import definePlugin, { OptionType } from "@utils/types";
-import { MediaEngineStore, showToast } from "@webpack/common";
+import { MediaEngineStore, SelectedChannelStore, showToast } from "@webpack/common";
 
 const logger = new Logger("GVoice");
 
@@ -128,7 +128,46 @@ function installSendHook() {
     };
 }
 
+// The patch below runs inside the function Discord uses to send your voice status.
+// It remembers that function and its last arguments, so it can be called again on demand.
+let senderCtx: Loose | null = null;
+let senderName: string | null = null;
+let senderArgs: unknown[] = [];
+
+function captureSender(ctx: unknown, args: ArrayLike<unknown> | undefined) {
+    if (!ctx || typeof ctx !== "object" || !args) return;
+    const target = ctx as Loose;
+
+    if (senderCtx !== target || !senderName) {
+        const proto = Object.getPrototypeOf(target);
+        const names = [...(proto ? Object.getOwnPropertyNames(proto) : []), ...Object.getOwnPropertyNames(target)];
+        senderName = null;
+        for (const name of names) {
+            if (name === "constructor") continue;
+            try {
+                const fn = target[name];
+                if (typeof fn === "function" && Function.prototype.toString.call(fn).includes("self_deaf")) {
+                    senderName = name;
+                    break;
+                }
+            } catch { }
+        }
+        senderCtx = senderName ? target : null;
+        if (senderName) logger.info("Found the voice status sender:", senderName);
+    }
+
+    if (senderName) senderArgs = Array.from(args);
+}
+
 function resendVoiceState() {
+    if (senderCtx && senderName && SelectedChannelStore.getVoiceChannelId()) {
+        try {
+            senderCtx[senderName](...senderArgs);
+            return;
+        } catch (e) {
+            logger.error("Failed to resend voice status", e);
+        }
+    }
     if (!gatewaySocket || !realVoiceState || gatewaySocket.readyState !== WebSocket.OPEN) return;
     gatewaySocket.send(JSON.stringify({ op: 4, d: realVoiceState }));
 }
@@ -188,7 +227,8 @@ function buildReport() {
     const list = connections ? Array.from<Loose>(connections.values?.() ?? connections) : [];
     const first = list[0];
     return JSON.stringify({
-        plugin: "GVoice diagnostics v3",
+        plugin: "GVoice diagnostics v4",
+        sender: { found: Boolean(senderName), name: senderName, argCount: senderArgs.length },
         patchHits,
         lastRealMute,
         lastRealDeaf,
@@ -260,8 +300,8 @@ function FakeMuteButton({ iconForeground, hideTooltips, nameplate }: UserAreaRen
             plated={nameplate != null}
             onClick={() => {
                 settings.store.fakeMute = !settings.store.fakeMute;
-                notify(`Fake mute ${settings.store.fakeMute ? "on" : "off"}. Rejoin the voice channel to apply`);
                 resendVoiceState();
+                notify(`Fake mute ${settings.store.fakeMute ? "on" : "off"}${senderName ? "" : ". Rejoin the voice channel to apply"}`);
             }}
         />
     );
@@ -279,8 +319,8 @@ function FakeDeafenButton({ iconForeground, hideTooltips, nameplate }: UserAreaR
             plated={nameplate != null}
             onClick={() => {
                 settings.store.fakeDeafen = !settings.store.fakeDeafen;
-                notify(`Fake deafen ${settings.store.fakeDeafen ? "on" : "off"}. Rejoin the voice channel to apply`);
                 resendVoiceState();
+                notify(`Fake deafen ${settings.store.fakeDeafen ? "on" : "off"}${senderName ? "" : ". Rejoin the voice channel to apply"}`);
             }}
         />
     );
@@ -328,25 +368,27 @@ export default definePlugin({
             replacement: [
                 {
                     match: /self_mute:((?:!!)?\i(?:\.\i)*)/,
-                    replace: "self_mute:$self.fakeMuteValue($1)"
+                    replace: "self_mute:$self.fakeMuteValue($1,this,arguments)"
                 },
                 {
                     match: /self_deaf:((?:!!)?\i(?:\.\i)*)/,
-                    replace: "self_deaf:$self.fakeDeafenValue($1)"
+                    replace: "self_deaf:$self.fakeDeafenValue($1,this,arguments)"
                 }
             ]
         }
     ],
 
-    fakeMuteValue(real: boolean) {
+    fakeMuteValue(real: boolean, ctx?: unknown, args?: ArrayLike<unknown>) {
         patchHits++;
         lastRealMute = real;
+        captureSender(ctx, args);
         return settings.store.fakeMute || settings.store.fakeDeafen ? true : real;
     },
 
-    fakeDeafenValue(real: boolean) {
+    fakeDeafenValue(real: boolean, ctx?: unknown, args?: ArrayLike<unknown>) {
         patchHits++;
         lastRealDeaf = real;
+        captureSender(ctx, args);
         return settings.store.fakeDeafen ? true : real;
     },
 
