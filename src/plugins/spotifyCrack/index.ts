@@ -41,6 +41,7 @@ export default definePlugin({
     tags: ["Media", "Utility", "Activity"],
     authors: [Devs.Cyn, Devs.Nuckyz],
     settings,
+    required: true,
 
     patches: [
         {
