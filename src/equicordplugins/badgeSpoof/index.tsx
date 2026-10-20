@@ -16,7 +16,7 @@ export default definePlugin({
     description: "Shows an Early Supporter badge on your own profile. Only you can see them.",
     authors: [EquicordDevs.nobody],
     dependencies: ["BadgeAPI"],
-    required: true,
+    enabledByDefault: true,
 
     userProfileBadges: [{
         id: "g-early-supporter",
