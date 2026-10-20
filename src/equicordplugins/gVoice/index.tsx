@@ -11,7 +11,7 @@ import { EquicordDevs } from "@utils/constants";
 import { copyWithToast } from "@utils/discord";
 import { Logger } from "@utils/Logger";
 import definePlugin, { OptionType } from "@utils/types";
-import { MediaEngineStore, SelectedChannelStore, showToast } from "@webpack/common";
+import { FluxDispatcher, MediaEngineStore, SelectedChannelStore, showToast } from "@webpack/common";
 
 const logger = new Logger("GVoice");
 
@@ -26,6 +26,14 @@ const settings = definePluginSettings({
             { label: "Stereo", value: "stereo" }
         ],
         onChange: () => reapplyTransportOptions()
+    },
+    micBoost: {
+        type: OptionType.SLIDER,
+        description: "Microphone input volume in percent. Goes past the normal 100 limit.",
+        markers: [100, 150, 200, 250, 300],
+        stickToMarkers: false,
+        default: 100,
+        onChange: (volume: number) => applyMicBoost(volume)
     },
     fakeMute: {
         type: OptionType.BOOLEAN,
@@ -48,6 +56,11 @@ const settings = definePluginSettings({
         )
     }
 });
+
+function applyMicBoost(volume: number) {
+    FluxDispatcher.dispatch({ type: "AUDIO_SET_INPUT_VOLUME", volume });
+    logger.info("Mic volume set to", volume, "store now says", MediaEngineStore.getInputVolume());
+}
 
 // ---------- Fake mute / fake deafen ----------
 // The gateway voice state message (op 4) is rewritten on its way out, so other people see
@@ -228,6 +241,7 @@ function buildReport() {
     const first = list[0];
     return JSON.stringify({
         plugin: "GVoice diagnostics v4",
+        micBoost: { setting: settings.store.micBoost, storeVolume: MediaEngineStore.getInputVolume() },
         sender: { found: Boolean(senderName), name: senderName, argCount: senderArgs.length },
         patchHits,
         lastRealMute,
@@ -401,6 +415,7 @@ export default definePlugin({
     start() {
         logger.info("GVoice started");
         installSendHook();
+        if (settings.store.micBoost > 100) applyMicBoost(settings.store.micBoost);
         addUserAreaButton("g-fake-mute", fakeMuteFactory, 90);
         addUserAreaButton("g-fake-deafen", fakeDeafenFactory, 91);
         addUserAreaButton("g-mic-mode", micModeFactory, 92);
