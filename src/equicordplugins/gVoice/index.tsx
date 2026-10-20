@@ -11,7 +11,7 @@ import { EquicordDevs } from "@utils/constants";
 import { copyWithToast } from "@utils/discord";
 import { Logger } from "@utils/Logger";
 import definePlugin, { OptionType } from "@utils/types";
-import { MediaEngineStore, showToast, Toasts } from "@webpack/common";
+import { MediaEngineStore, showToast } from "@webpack/common";
 
 const logger = new Logger("GVoice");
 
@@ -206,7 +206,7 @@ function buildReport() {
 }
 
 function notify(message: string) {
-    showToast(message, Toasts.Type.SUCCESS);
+    showToast({ text: message, variant: "success", position: "bottom" });
 }
 
 // ---------- Buttons next to mute and deafen ----------
