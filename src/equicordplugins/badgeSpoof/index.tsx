@@ -9,31 +9,20 @@ import { EquicordDevs } from "@utils/constants";
 import definePlugin from "@utils/types";
 import { UserStore } from "@webpack/common";
 
-import { OPAL_BADGE } from "./opal";
-
 const isMe = ({ userId }: BadgeUserArgs) => userId === UserStore.getCurrentUser().id;
 
 export default definePlugin({
     name: "BadgeSpoof",
-    description: "Shows an Early Supporter and an Opal Nitro badge on your own profile. Only you can see them.",
+    description: "Shows an Early Supporter badge on your own profile. Only you can see them.",
     authors: [EquicordDevs.nobody],
     dependencies: ["BadgeAPI"],
     required: true,
 
-    userProfileBadges: [
-        {
-            id: "g-early-supporter",
-            description: "Early Supporter",
-            iconSrc: "https://cdn.discordapp.com/badge-icons/7060786766c9c840eb3019e725d2b358.png",
-            position: BadgePosition.START,
-            shouldShow: isMe
-        },
-        {
-            id: "g-opal",
-            description: "Subscriber since Feb 9, 2018",
-            iconSrc: OPAL_BADGE,
-            position: BadgePosition.START,
-            shouldShow: isMe
-        }
-    ]
+    userProfileBadge: {
+        id: "g-early-supporter",
+        description: "Early Supporter",
+        iconSrc: "https://cdn.discordapp.com/badge-icons/7060786766c9c840eb3019e725d2b358.png",
+        position: BadgePosition.START,
+        shouldShow: isMe
+    }
 });
