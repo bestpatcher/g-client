@@ -25,13 +25,13 @@ jobs:
         run: node g-rename.mjs
 
       - name: Build
-        run: pnpm buildStandalone --disable-updater
+        run: pnpm buildStandalone
 
       - name: Publish release
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          HASH=$(git rev-parse --short HEAD)
+          HASH=$(git rev-parse HEAD)
           if gh release view latest >/dev/null 2>&1; then
             gh release upload latest dist/desktop.asar --clobber
             gh release edit latest --title "G $HASH" --notes "G client build $HASH"
