@@ -1,0 +1,58 @@
+body:has([data-settings-sidebar-item]) {
+    --background-base-lowest: #000;
+    --background-base-lower: #020a04;
+    --background-base-low: #040f06;
+    --background-surface-high: #07160a;
+    --background-surface-higher: #0a1e0e;
+    --background-primary: #040f06;
+    --background-secondary: #020a04;
+    --background-tertiary: #000;
+    --background-floating: #07160a;
+    --brand-500: #00c853;
+    --text-brand: #39ff14;
+}
+
+[data-settings-sidebar-item] > div {
+    background: transparent !important; /* Drops Discord's grey hover and selected fill so the green shows */
+}
+
+[data-settings-sidebar-item] > div:hover {
+    background: #0a1e0e !important; /* Hover fill for the black and green look */
+}
+
+[data-settings-sidebar-item] > div,
+[data-settings-sidebar-item] > div * {
+    color: var(--vc-gtheme-color) !important; /* Item text and icons use currentColor, Discord sets their own colors */
+}
+
+[data-settings-sidebar-item]:nth-child(8n+1) {
+    --vc-gtheme-color: #39ff14;
+}
+
+[data-settings-sidebar-item]:nth-child(8n+2) {
+    --vc-gtheme-color: #00e676;
+}
+
+[data-settings-sidebar-item]:nth-child(8n+3) {
+    --vc-gtheme-color: #69f0ae;
+}
+
+[data-settings-sidebar-item]:nth-child(8n+4) {
+    --vc-gtheme-color: #1de9b6;
+}
+
+[data-settings-sidebar-item]:nth-child(8n+5) {
+    --vc-gtheme-color: #76ff03;
+}
+
+[data-settings-sidebar-item]:nth-child(8n+6) {
+    --vc-gtheme-color: #00c853;
+}
+
+[data-settings-sidebar-item]:nth-child(8n+7) {
+    --vc-gtheme-color: #64ffda;
+}
+
+[data-settings-sidebar-item]:nth-child(8n+8) {
+    --vc-gtheme-color: #b2ff59;
+}
