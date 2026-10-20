@@ -333,19 +333,6 @@ function HeadphonesIcon({ className, slashed }: { className?: string; slashed?: 
     );
 }
 
-function StereoIcon({ className, stereo }: { className?: string; stereo?: boolean; }) {
-    return (
-        <svg className={className} width="20" height="20" viewBox="0 0 24 24" aria-hidden="true">
-            {stereo
-                ? <>
-                    <circle cx="9" cy="12" r="5.5" fill="currentColor" />
-                    <circle cx="15" cy="12" r="5.5" fill="currentColor" opacity="0.55" />
-                </>
-                : <circle cx="12" cy="12" r="5.5" fill="currentColor" />}
-        </svg>
-    );
-}
-
 function FakeMuteButton({ iconForeground, hideTooltips, nameplate }: UserAreaRenderProps) {
     const { fakeMute } = settings.use(["fakeMute"]);
     return (
@@ -384,29 +371,8 @@ function FakeDeafenButton({ iconForeground, hideTooltips, nameplate }: UserAreaR
     );
 }
 
-function MicModeButton({ iconForeground, hideTooltips, nameplate }: UserAreaRenderProps) {
-    const { micMode } = settings.use(["micMode"]);
-    const stereo = micMode === "stereo";
-    return (
-        <UserAreaButton
-            tooltipText={hideTooltips ? void 0 : stereo ? "Microphone: Stereo" : "Microphone: Mono"}
-            icon={<StereoIcon className={iconForeground} stereo={stereo} />}
-            role="switch"
-            aria-checked={stereo}
-            orangeGlow={stereo}
-            plated={nameplate != null}
-            onClick={() => {
-                settings.store.micMode = stereo ? "mono" : "stereo";
-                notify(`Microphone: ${stereo ? "Mono" : "Stereo"}. Rejoin the voice channel to apply`);
-                reapplyTransportOptions();
-            }}
-        />
-    );
-}
-
 const fakeMuteFactory: UserAreaButtonFactory = props => <FakeMuteButton {...props} />;
 const fakeDeafenFactory: UserAreaButtonFactory = props => <FakeDeafenButton {...props} />;
-const micModeFactory: UserAreaButtonFactory = props => <MicModeButton {...props} />;
 
 export default definePlugin({
     name: "GVoice",
@@ -469,7 +435,6 @@ export default definePlugin({
         if (settings.store.micBoost > 100) applyMicBoost();
         addUserAreaButton("g-fake-mute", fakeMuteFactory, 90);
         addUserAreaButton("g-fake-deafen", fakeDeafenFactory, 91);
-        addUserAreaButton("g-mic-mode", micModeFactory, 92);
         hookVoiceConnectionClass();
         wrapAllConnections();
     },
@@ -477,7 +442,6 @@ export default definePlugin({
     stop() {
         removeUserAreaButton("g-fake-mute");
         removeUserAreaButton("g-fake-deafen");
-        removeUserAreaButton("g-mic-mode");
 
         if (originalSend) {
             WebSocket.prototype.send = originalSend;
