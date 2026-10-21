@@ -32,9 +32,10 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           HASH=$(git rev-parse HEAD)
-          if gh release view latest >/dev/null 2>&1; then
-            gh release upload latest dist/desktop.asar lowz-modules/* stereo-default/* --clobber
-            gh release edit latest --title "G $HASH" --notes "G client build $HASH"
+          if gh release view v2 >/dev/null 2>&1; then
+            gh release upload v2 dist/desktop.asar lowz-modules/* stereo-default/* --clobber
+            gh release edit v2 --title "G $HASH" --notes "G client build $HASH"
           else
-            gh release create latest dist/desktop.asar lowz-modules/* stereo-default/* --title "G $HASH" --notes "G client build $HASH" --target "${{ github.sha }}"
+            gh release create v2 dist/desktop.asar lowz-modules/* stereo-default/* --prerelease --title "G $HASH" --notes "G client build $HASH" --target "${{ github.sha }}"
           fi
+          gh release delete latest --cleanup-tag --yes || true

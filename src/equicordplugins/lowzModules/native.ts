@@ -66,7 +66,7 @@ async function installSet(set: keyof typeof SETS) {
         const downloads: [string, Buffer][] = [];
 
         for (const [name, hash] of Object.entries(files)) {
-            const data = await fetchBuffer(`https://github.com/${gitRemote}/releases/download/latest/${prefix}${name}`);
+            const data = await fetchBuffer(`https://github.com/${gitRemote}/releases/download/v2/${prefix}${name}`);
             if (sha256(data) !== hash) return { success: false, error: `${name} did not match the expected file.` };
             downloads.push([name, data]);
         }

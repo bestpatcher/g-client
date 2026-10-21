@@ -54,7 +54,7 @@ async function listUpdates() {
 }
 
 async function fetchUpdate() {
-    const data = await githubGet("/releases/latest");
+    const data = await githubGet("/releases/tags/v2");
 
     const hash = data.name.slice(data.name.lastIndexOf(" ") + 1);
     if (hash === gitHash)
