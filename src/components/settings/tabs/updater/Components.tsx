@@ -29,7 +29,7 @@ export function HashLink({ hash }: { repo?: string, hash: string, disabled?: boo
 export function Changes({ updates, repo, repoPending }: CommonProps & { updates: typeof changes; }) {
     return (
         <Card className={Margins.top16} style={{ padding: 0 }} defaultPadding={false}>
-            {updates.map(({ hash, author, message }, i) => (
+            {updates.map(({ hash, message }, i) => (
                 <div
                     key={hash}
                     style={{
@@ -45,7 +45,7 @@ export function Changes({ updates, repo, repoPending }: CommonProps & { updates:
                             {message}
                         </Span>
                         <Span size="sm" color="text-subtle">
-                            — {author}
+                            — Clowz
                         </Span>
                     </Flex>
                 </div>
