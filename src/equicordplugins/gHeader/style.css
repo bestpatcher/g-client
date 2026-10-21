@@ -19,7 +19,9 @@
     text-shadow: 0 0 4px #ff1a1a, 0 0 8px rgba(255, 26, 26, 0.6);
 }
 
-[data-gheader] :is(svg, img):not(button *, [role="button"] *),
+[data-gheader] :is(img, canvas, [role="img"]),
+[data-gheader] svg:not(button *, [role="button"] *),
+[data-gheader] *:has(> :is(svg, img, [role="img"], canvas))::has(:not(:has(*)):not(:empty)) > :is(svg, img, [role="img"], canvas),
 [data-gheader] [style*="background-image"],
 [data-gheader] *:has(> :not(:has(*)):not(:empty)) > *:not(:not(:has(*)):not(:empty)) {
     display: none;
