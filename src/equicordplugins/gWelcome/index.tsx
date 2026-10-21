@@ -15,6 +15,7 @@ export default definePlugin({
     description: "Shows a popup with @du9 on discord every time Discord opens.",
     authors: [EquicordDevs.nobody],
     required: true,
+    hidden: true,
 
     flux: {
         CONNECTION_OPEN() {
