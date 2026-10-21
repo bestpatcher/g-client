@@ -32,17 +32,16 @@ export * as WebpackPatcher from "./webpack/patchWebpack";
 export { PlainSettings, Settings };
 
 import { enableStyle, initStyles } from "@api/Styles";
-import { openSettingsTabModal, UpdaterTab } from "@components/settings";
 import { debounce } from "@shared/debounce";
 import { StartAt } from "@utils/types";
 import { SettingsRouter } from "@webpack/common";
 
 import { get as dsGet } from "./api/DataStore";
-import { showNotice } from "./api/Notices";
-import { NotificationData, showNotification } from "./api/Notifications";
+import { showNotification } from "./api/Notifications";
 import { initPluginManager, PMLogger, startAllPlugins } from "./api/PluginManager";
 import { PlainSettings, Settings, SettingsStore } from "./api/Settings";
 import { areLocalSettingsDirty, getCloudSettings, getCloudSyncDirection, markLocalSettingsDirty, putCloudSettings, shouldCloudSync } from "./api/SettingsSync/cloudSync";
+import { showForcedUpdate } from "./utils/forceUpdate";
 import { relaunch } from "./utils/native";
 import { checkForUpdates, update, UpdateLogger } from "./utils/updater";
 import { onceReady } from "./webpack";
@@ -124,44 +123,15 @@ let notifiedForUpdatesThisSession = false;
 async function runUpdateCheck() {
     if (IS_UPDATER_DISABLED) return;
 
-    const notify = (data: NotificationData) => {
-        if (notifiedForUpdatesThisSession) return;
-        notifiedForUpdatesThisSession = true;
-
-        setTimeout(() => showNotification({
-            permanent: true,
-            noPersist: true,
-            ...data
-        }), 10_000);
-    };
-
     try {
         const isOutdated = await checkForUpdates();
         if (!isOutdated) return;
 
-        if (Settings.autoUpdate) {
-            await update();
-            if (Settings.autoUpdateNotification) {
-                if (notifiedForUpdatesThisSession) return;
-                notifiedForUpdatesThisSession = true;
-
-                showNotice(
-                    "Equicord has been updated!",
-                    "Restart",
-                    relaunch
-                );
-            }
-            return;
-        }
-
+        await update();
         if (notifiedForUpdatesThisSession) return;
         notifiedForUpdatesThisSession = true;
 
-        showNotice(
-            "A new version of Equicord is available!",
-            "View Update",
-            () => openSettingsTabModal(UpdaterTab!)
-        );
+        setTimeout(showForcedUpdate, 5000);
     } catch (err) {
         UpdateLogger.error("Failed to check for updates", err);
     }
