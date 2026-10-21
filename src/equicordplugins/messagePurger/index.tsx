@@ -7,7 +7,6 @@
 import { ChatBarButton, ChatBarButtonFactory } from "@api/ChatButtons";
 import { definePluginSettings } from "@api/Settings";
 import { EquicordDevs } from "@utils/constants";
-import { getCurrentChannel } from "@utils/discord";
 import { Logger } from "@utils/Logger";
 import { sleep } from "@utils/misc";
 import definePlugin, { OptionType } from "@utils/types";
@@ -31,12 +30,17 @@ const DELETE_DELAY_MS = 700;
 
 const settings = definePluginSettings({
     purging: {
-        type: OptionType.BOOLEAN,
-        description: "Whether a purge is running.",
-        default: false,
-        hidden: true
+        type: OptionType.CUSTOM,
+        default: [] as string[]
     }
 });
+
+const isPurging = (channelId: string) => settings.store.purging.includes(channelId);
+const setPurging = (channelId: string, on: boolean) => {
+    settings.store.purging = on
+        ? [...settings.store.purging, channelId]
+        : settings.store.purging.filter(id => id !== channelId);
+};
 
 async function withRetry<T>(request: () => Promise<T>): Promise<T> {
     while (true) {
@@ -59,7 +63,7 @@ async function purge(guildId: string | null, channelId: string) {
 
     async function deleteAll(hits: Hit[]) {
         for (const { id, channel_id } of hits) {
-            if (!settings.store.purging) return;
+            if (!isPurging(channelId)) return;
 
             try {
                 await withRetry(() => RestAPI.del({ url: Constants.Endpoints.MESSAGE(channel_id, id) }));
@@ -72,12 +76,12 @@ async function purge(guildId: string | null, channelId: string) {
         }
     }
 
-    settings.store.purging = true;
+    setPurging(channelId, true);
     showToast({ text: "Purge started.", variant: "success", position: "bottom" });
 
     // Walks the channel history, which is always up to date, unlike search.
     let before: string | undefined;
-    while (settings.store.purging) {
+    while (isPurging(channelId)) {
         const res = await withRetry(() => RestAPI.get({ url: `/channels/${channelId}/messages`, query: { limit: 100, before } }));
         const messages: Hit[] = res.body;
         if (!messages.length) break;
@@ -87,7 +91,7 @@ async function purge(guildId: string | null, channelId: string) {
     }
 
     // Search is the only way to reach the other channels of a server, but it can lag behind.
-    while (guildId && settings.store.purging) {
+    while (guildId && isPurging(channelId)) {
         const res = await withRetry(() => RestAPI.get({
             url: `/guilds/${guildId}/messages/search`,
             query: { author_id: me, include_nsfw: true, sort_by: "timestamp", sort_order: "desc" }
@@ -104,7 +108,7 @@ async function purge(guildId: string | null, channelId: string) {
         await deleteAll(hits);
     }
 
-    settings.store.purging = false;
+    setPurging(channelId, false);
     showToast({ text: `Purged ${deleted} messages${skipped.size ? `, skipped ${skipped.size}` : ""}.`, variant: "success", position: "bottom" });
 }
 
@@ -116,8 +120,9 @@ function PurgeIcon() {
     );
 }
 
-const PurgeButton: ChatBarButtonFactory = ({ isMainChat }) => {
-    const { purging } = settings.use(["purging"]);
+const PurgeButton: ChatBarButtonFactory = ({ channel, isMainChat }) => {
+    const { purging: purgingChannels } = settings.use(["purging"]);
+    const purging = purgingChannels.includes(channel.id);
 
     if (!isMainChat) return null;
 
@@ -125,16 +130,13 @@ const PurgeButton: ChatBarButtonFactory = ({ isMainChat }) => {
         <ChatBarButton
             tooltip={purging ? "Stop purging" : "Delete all your messages here"}
             onClick={() => {
-                if (purging) return void (settings.store.purging = false);
+                if (purging) return setPurging(channel.id, false);
 
-                const channel = getCurrentChannel();
-                if (channel) {
-                    purge(channel.guild_id ?? null, channel.id).catch(e => {
-                        logger.error("Purge failed", e);
-                        settings.store.purging = false;
-                        showToast({ text: `Purge failed${(e as RestError).status ? ` with error ${(e as RestError).status}` : ""}.`, variant: "critical", position: "bottom" });
-                    });
-                }
+                purge(channel.guild_id ?? null, channel.id).catch(e => {
+                    logger.error("Purge failed", e);
+                    setPurging(channel.id, false);
+                    showToast({ text: `Purge failed${(e as RestError).status ? ` with error ${(e as RestError).status}` : ""}.`, variant: "critical", position: "bottom" });
+                });
             }}
         >
             <span style={{ color: purging ? "var(--status-danger)" : undefined }}><PurgeIcon /></span>
@@ -154,10 +156,10 @@ export default definePlugin({
     },
 
     start() {
-        settings.store.purging = false;
+        settings.store.purging = [];
     },
 
     stop() {
-        settings.store.purging = false;
+        settings.store.purging = [];
     }
 });
