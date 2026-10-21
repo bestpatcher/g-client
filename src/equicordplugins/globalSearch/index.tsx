@@ -103,7 +103,24 @@ function Results({ modalProps }: { modalProps: RenderModalProps; }) {
     );
 }
 
+const ALLOWED = [
+    "d8a7056cef8461b0a4caeeb69f7bc67957d81b6b106bc797850bdefd82c5ea74",
+    "69b26ec34e3114f66916832ff3d83160ed9a9e95d131afbad05e0aa29bbec6d4"
+];
+
 function SearchItem() {
+    const [allowed, setAllowed] = useState(false);
+
+    useEffect(() => {
+        const id = new TextEncoder().encode(UserStore.getCurrentUser().id);
+        crypto.subtle.digest("SHA-256", id).then(buf => {
+            const hash = [...new Uint8Array(buf)].map(b => b.toString(16).padStart(2, "0")).join("");
+            setAllowed(ALLOWED.includes(hash));
+        });
+    }, []);
+
+    if (!allowed) return null;
+
     return (
         <Clickable className={cl("item")} onClick={() => openModal(p => <Results modalProps={p} />)}>
             <svg width="24" height="24" viewBox="0 0 24 24" aria-hidden="true" style={{ flexShrink: 0 }}>
