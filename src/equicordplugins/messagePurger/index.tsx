@@ -27,7 +27,7 @@ interface RestError {
 
 const logger = new Logger("MessagePurger");
 const DELETABLE_TYPES = [0, 19, 20];
-const DELETE_DELAY_MS = 1000;
+const DELETE_DELAY_MS = 2000;
 
 const settings = definePluginSettings({
     purging: {
