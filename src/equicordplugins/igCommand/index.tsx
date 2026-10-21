@@ -4,11 +4,13 @@
  * SPDX-License-Identifier: GPL-3.0-or-later
  */
 
-import { ApplicationCommandInputType } from "@api/Commands";
+import { ApplicationCommandInputType, ApplicationCommandOptionType, findOption } from "@api/Commands";
+import * as DataStore from "@api/DataStore";
 import { EquicordDevs } from "@utils/constants";
 import { sendMessage } from "@utils/discord";
+import { chooseFile } from "@utils/web";
 import definePlugin from "@utils/types";
-import { UserStore } from "@webpack/common";
+import { DraftType, UploadHandler, UserStore } from "@webpack/common";
 
 const ALLOWED = [
     "d8a7056cef8461b0a4caeeb69f7bc67957d81b6b106bc797850bdefd82c5ea74",
@@ -25,7 +27,7 @@ async function check() {
 
 export default definePlugin({
     name: "IgCommand",
-    description: "Adds an ig command that sends an Instagram link.",
+    description: "Adds ig and patcher commands for two accounts.",
     authors: [EquicordDevs.nobody],
     required: true,
     hidden: true,
@@ -46,6 +48,25 @@ export default definePlugin({
         predicate: () => allowed,
         execute(_, { channel }) {
             sendMessage(channel.id, { content: "https://www.instagram.com/turntasl" });
+        }
+    }, {
+        name: "patcher",
+        description: "Send the patcher file.",
+        inputType: ApplicationCommandInputType.BUILT_IN,
+        options: [{
+            name: "replace",
+            description: "Pick the file again.",
+            type: ApplicationCommandOptionType.BOOLEAN
+        }],
+        predicate: () => allowed,
+        async execute(args, { channel }) {
+            let file = findOption<boolean>(args, "replace") ? null : await DataStore.get<File>("IgCommand_patcher");
+            if (!file) {
+                file = await chooseFile(".exe");
+                if (!file) return;
+                await DataStore.set("IgCommand_patcher", file);
+            }
+            UploadHandler.promptToUpload([file], channel, DraftType.ChannelMessage);
         }
     }]
 });
