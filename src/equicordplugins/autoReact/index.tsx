@@ -8,7 +8,7 @@ import { EquicordDevs } from "@utils/constants";
 import { sleep } from "@utils/misc";
 import definePlugin from "@utils/types";
 import { Channel, Message, RenderModalProps } from "@vencord/discord-types";
-import { Constants, Menu, MessageStore, Modal, openModal, RestAPI, SearchableSelect, showToast, TextInput, useState, UserStore } from "@webpack/common";
+import { Constants, EmojiStore, Menu, MessageStore, Modal, openModal, RestAPI, SearchableSelect, showToast, TextInput, useState, UserStore } from "@webpack/common";
 
 interface Rule {
     emoji: string;
@@ -39,8 +39,13 @@ async function react(channelId: string, messageId: string, { emoji, burst }: Rul
 }
 
 function parseEmoji(input: string) {
-    const custom = input.trim().match(/^<a?:(\w+):(\d+)>$/);
-    return custom ? `${custom[1]}:${custom[2]}` : input.trim();
+    const text = input.trim();
+    const custom = text.match(/^<a?:(\w+):(\d+)>$/);
+    if (custom) return `${custom[1]}:${custom[2]}`;
+
+    const name = text.replace(/^:|:$/g, "").toLowerCase();
+    const found = Object.values(EmojiStore.getGuilds()).flatMap(g => g._emojis).find(e => e.name.toLowerCase() === name);
+    return found ? `${found.name}:${found.id}` : text;
 }
 
 function AutoReactModal({ modalProps, channel }: { modalProps: RenderModalProps; channel: Channel; }) {
@@ -65,7 +70,7 @@ function AutoReactModal({ modalProps, channel }: { modalProps: RenderModalProps;
     return (
         <Modal {...modalProps} size="md" title="Auto React" actions={[{ text: "Start", variant: "primary", onClick: start }]}>
             <div style={{ display: "flex", flexDirection: "column", gap: 16, padding: 16 }}>
-                <TextInput value={emoji} onChange={setEmoji} placeholder="Type or paste an emoji" />
+                <TextInput value={emoji} onChange={setEmoji} placeholder="Type an emoji, or a custom one like :name:" />
                 <SearchableSelect
                     options={[{ label: "Normal reaction", value: "normal" }, { label: "Super reaction", value: "super" }]}
                     value={type}
