@@ -1,23 +1,26 @@
 body:has([data-settings-sidebar-item]) {
     --background-base-lowest: #000;
-    --background-base-lower: #0d0203;
-    --background-base-low: #140304;
-    --background-surface-high: #1e0507;
-    --background-surface-higher: #2a0709;
-    --background-primary: #140304;
-    --background-secondary: #0d0203;
+    --background-base-lower: #080001;
+    --background-base-low: #0e0102;
+    --background-surface-high: #170305;
+    --background-surface-higher: #220407;
+    --background-primary: #0e0102;
+    --background-secondary: #080001;
     --background-tertiary: #000;
-    --background-floating: #1e0507;
-    --brand-500: #e53935;
-    --text-brand: #ff1744;
+    --background-floating: #170305;
+    --brand-500: #8b0000;
+    --text-brand: #c0171d;
 }
 
 [data-settings-sidebar-item] > div {
     background: transparent !important; /* Drops Discord's grey hover and selected fill so the red shows */
+    transition: box-shadow 0.2s, background-color 0.2s, text-shadow 0.2s;
 }
 
 [data-settings-sidebar-item] > div:hover {
-    background: #2a0709 !important; /* Hover fill for the black and red look */
+    background: #220407 !important; /* Hover fill for the dark blood red look */
+    box-shadow: 0 0 14px var(--vc-gtheme-color), inset 0 0 10px var(--vc-gtheme-color);
+    text-shadow: 0 0 8px var(--vc-gtheme-color);
 }
 
 [data-settings-sidebar-item] > div,
@@ -26,33 +29,33 @@ body:has([data-settings-sidebar-item]) {
 }
 
 [data-settings-sidebar-item]:nth-child(8n+1) {
-    --vc-gtheme-color: #ff1744;
+    --vc-gtheme-color: #b3121a;
 }
 
 [data-settings-sidebar-item]:nth-child(8n+2) {
-    --vc-gtheme-color: #ff5252;
+    --vc-gtheme-color: #c0171d;
 }
 
 [data-settings-sidebar-item]:nth-child(8n+3) {
-    --vc-gtheme-color: #ff4081;
+    --vc-gtheme-color: #a8141c;
 }
 
 [data-settings-sidebar-item]:nth-child(8n+4) {
-    --vc-gtheme-color: #f50057;
+    --vc-gtheme-color: #cf1b1b;
 }
 
 [data-settings-sidebar-item]:nth-child(8n+5) {
-    --vc-gtheme-color: #ff6e6e;
+    --vc-gtheme-color: #9e1219;
 }
 
 [data-settings-sidebar-item]:nth-child(8n+6) {
-    --vc-gtheme-color: #e53935;
+    --vc-gtheme-color: #d12a2a;
 }
 
 [data-settings-sidebar-item]:nth-child(8n+7) {
-    --vc-gtheme-color: #ff867c;
+    --vc-gtheme-color: #b01e2a;
 }
 
 [data-settings-sidebar-item]:nth-child(8n+8) {
-    --vc-gtheme-color: #d50000;
+    --vc-gtheme-color: #c4161c;
 }

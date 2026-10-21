@@ -11,7 +11,7 @@ import definePlugin from "@utils/types";
 
 export default definePlugin({
     name: "GTheme",
-    description: "Red and black settings menu with a different shade of red on every option.",
+    description: "Dark blood red settings menu with a different shade of red on every option and a glow on hover.",
     authors: [EquicordDevs.nobody],
     required: true
 });
