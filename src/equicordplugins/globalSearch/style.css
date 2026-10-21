@@ -1,0 +1,41 @@
+.vc-globalsearch-item {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    height: 42px;
+    margin: 0 8px 2px;
+    padding: 0 8px;
+    border-radius: 4px;
+    font-size: 16px;
+    font-weight: 500;
+    color: var(--interactive-normal);
+    cursor: pointer;
+}
+
+.vc-globalsearch-item:hover {
+    background: var(--background-modifier-hover);
+    color: var(--interactive-hover);
+}
+
+.vc-globalsearch-body {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    padding: 16px;
+}
+
+.vc-globalsearch-status {
+    font-size: 12px;
+    opacity: 0.7;
+}
+
+.vc-globalsearch-hit {
+    padding: 8px;
+    border-radius: 6px;
+    background: var(--background-secondary);
+}
+
+.vc-globalsearch-where {
+    font-size: 12px;
+    opacity: 0.7;
+}

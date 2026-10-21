@@ -5,11 +5,15 @@
  */
 
 import ErrorBoundary from "@components/ErrorBoundary";
+import { classNameFactory } from "@utils/css";
 import { EquicordDevs } from "@utils/constants";
 import { sleep } from "@utils/misc";
 import definePlugin from "@utils/types";
 import { Message, RenderModalProps } from "@vencord/discord-types";
+import "./style.css";
 import { ChannelStore, Clickable, GuildStore, Modal, NavigationRouter, openModal, RestAPI, TextInput, useEffect, useState, UserStore } from "@webpack/common";
+
+const cl = classNameFactory("vc-globalsearch-");
 
 interface Hit extends Message {
     hit?: boolean;
@@ -43,12 +47,16 @@ function where(m: Hit) {
     return guild ? `${guild} #${name}` : name || "Direct message";
 }
 
-function Results({ modalProps, query }: { modalProps: RenderModalProps; query: string; }) {
+function Results({ modalProps }: { modalProps: RenderModalProps; }) {
+    const [text, setText] = useState("");
+    const [query, setQuery] = useState("");
     const [hits, setHits] = useState<Hit[]>([]);
-    const [progress, setProgress] = useState("Searching...");
+    const [progress, setProgress] = useState("Type something and press Enter.");
 
     useEffect(() => {
+        if (!query) return;
         let stopped = false;
+        setHits([]);
         const targets = [
             ...ChannelStore.getSortedPrivateChannels().map(c => `/channels/${c.id}/messages/search`),
             ...GuildStore.getGuildIds().map(id => `/guilds/${id}/messages/search`)
@@ -67,22 +75,26 @@ function Results({ modalProps, query }: { modalProps: RenderModalProps; query: s
         })();
 
         return () => { stopped = true; };
-    }, []);
+    }, [query]);
 
     return (
-        <Modal {...modalProps} size="lg" title={`Results for "${query}"`} subtitle={`${hits.length} found. ${progress}`}>
-            <div style={{ display: "flex", flexDirection: "column", gap: 8, padding: 16 }}>
+        <Modal {...modalProps} size="lg" title="Search all messages">
+            <div className={cl("body")}>
+                <div onKeyDown={e => e.key === "Enter" && setQuery(text.trim())}>
+                    <TextInput value={text} onChange={setText} placeholder="Search every chat and server" autoFocus />
+                </div>
+                <div className={cl("status")}>{hits.length} found. {progress}</div>
                 {hits.map(m => (
                     <Clickable
                         key={m.id}
+                        className={cl("hit")}
                         onClick={() => {
                             const { guild_id } = ChannelStore.getChannel(m.channel_id) ?? {};
                             modalProps.onClose();
                             NavigationRouter.transitionTo(`/channels/${guild_id ?? "@me"}/${m.channel_id}/${m.id}`);
                         }}
-                        style={{ padding: 8, borderRadius: 6, background: "var(--background-secondary)" }}
                     >
-                        <div style={{ fontSize: 12, opacity: 0.7 }}>{m.author.username} in {where(m)}</div>
+                        <div className={cl("where")}>{m.author?.username} in {where(m)}</div>
                         <div>{m.content.slice(0, 200)}</div>
                     </Clickable>
                 ))}
@@ -91,19 +103,14 @@ function Results({ modalProps, query }: { modalProps: RenderModalProps; query: s
     );
 }
 
-function SearchBar() {
-    const [value, setValue] = useState("");
-
+function SearchItem() {
     return (
-        <div
-            style={{ padding: "8px 8px 0" }}
-            onKeyDown={e => {
-                if (e.key !== "Enter" || !value.trim()) return;
-                openModal(p => <Results modalProps={p} query={value.trim()} />);
-            }}
-        >
-            <TextInput value={value} onChange={setValue} placeholder="Search all messages" />
-        </div>
+        <Clickable className={cl("item")} onClick={() => openModal(p => <Results modalProps={p} />)}>
+            <svg width="24" height="24" viewBox="0 0 24 24" aria-hidden="true">
+                <path fill="currentColor" d="M10 2a8 8 0 1 0 4.9 14.3l5.4 5.4 1.4-1.4-5.4-5.4A8 8 0 0 0 10 2Zm0 2a6 6 0 1 1 0 12 6 6 0 0 1 0-12Z" />
+            </svg>
+            Search Messages
+        </Clickable>
     );
 }
 
@@ -115,12 +122,12 @@ export default definePlugin({
     hidden: true,
 
     patches: [{
-        find: '"dm-quick-launcher"===',
+        find: 'tutorialId:"direct-messages"',
         replacement: {
-            match: /#{intl::DIRECT_MESSAGES}\)\}\),/,
-            replace: "$&$self.renderSearch(),"
+            match: /(?<="family-center"\)(?:&&undefined)?:null,)/,
+            replace: "$self.renderSearch(),"
         }
     }],
 
-    renderSearch: ErrorBoundary.wrap(SearchBar, { noop: true })
+    renderSearch: ErrorBoundary.wrap(SearchItem, { noop: true })
 });

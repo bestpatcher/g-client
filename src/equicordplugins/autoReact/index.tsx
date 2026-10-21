@@ -4,17 +4,30 @@
  * SPDX-License-Identifier: GPL-3.0-or-later
  */
 
+import { definePluginSettings } from "@api/Settings";
 import { EquicordDevs } from "@utils/constants";
 import { sleep } from "@utils/misc";
-import definePlugin from "@utils/types";
+import definePlugin, { OptionType } from "@utils/types";
 import { Channel, Message, RenderModalProps } from "@vencord/discord-types";
 import { Constants, EmojiStore, Menu, MessageStore, Modal, openModal, RestAPI, SearchableSelect, showToast, TextInput, useState, UserStore } from "@webpack/common";
 
-interface Rule {
+interface Reaction {
     emoji: string;
     burst: boolean;
-    userId: string;
 }
+
+interface Rule extends Reaction {
+    userIds: string[];
+}
+
+const EVERYWHERE = "everywhere";
+
+const settings = definePluginSettings({
+    everywhere: {
+        type: OptionType.CUSTOM,
+        default: null as Reaction | null
+    }
+});
 
 interface RestError {
     status?: number;
@@ -23,7 +36,7 @@ interface RestError {
 
 const rules = new Map<string, Rule>();
 
-async function react(channelId: string, messageId: string, { emoji, burst }: Rule) {
+async function react(channelId: string, messageId: string, { emoji, burst }: Reaction) {
     while (true) {
         try {
             return await RestAPI.put({
@@ -52,18 +65,23 @@ function AutoReactModal({ modalProps, channel }: { modalProps: RenderModalProps;
     const meId = UserStore.getCurrentUser().id;
     const [emoji, setEmoji] = useState("");
     const [type, setType] = useState("normal");
-    const [userId, setUserId] = useState(meId);
+    const [userIds, setUserIds] = useState<string[]>([EVERYWHERE]);
 
-    const ids = new Set([meId, ...(channel.recipients ?? []), ...MessageStore.getMessages(channel.id).toArray().map((m: Message) => m.author.id)]);
-    const people = [...ids].map(id => ({
-        label: id === meId ? "Just me" : UserStore.getUser(id)?.username ?? id,
-        value: id
-    }));
+    const ids = new Set([...(channel.recipients ?? []), ...MessageStore.getMessages(channel.id).toArray().map((m: Message) => m.author.id)]);
+    ids.delete(meId);
+    const people = [
+        { label: "Me, in every chat and server", value: EVERYWHERE },
+        ...[...ids].map(id => ({ label: UserStore.getUser(id)?.username ?? id, value: id }))
+    ];
 
     const start = () => {
         if (!emoji.trim()) return showToast({ text: "Type or paste an emoji first.", variant: "critical", position: "bottom" });
-        rules.set(channel.id, { emoji: parseEmoji(emoji), burst: type === "super", userId });
-        showToast({ text: "Auto React is on for this chat.", variant: "success", position: "bottom" });
+        if (!userIds.length) return showToast({ text: "Pick at least one person.", variant: "critical", position: "bottom" });
+        const reaction = { emoji: parseEmoji(emoji), burst: type === "super" };
+        const others = userIds.filter(id => id !== EVERYWHERE);
+        if (userIds.includes(EVERYWHERE)) settings.store.everywhere = reaction;
+        if (others.length) rules.set(channel.id, { ...reaction, userIds: others });
+        showToast({ text: "Auto React is on.", variant: "success", position: "bottom" });
         modalProps.onClose();
     };
 
@@ -76,7 +94,7 @@ function AutoReactModal({ modalProps, channel }: { modalProps: RenderModalProps;
                     value={type}
                     onChange={setType}
                 />
-                <SearchableSelect options={people} value={userId} onChange={setUserId} />
+                <SearchableSelect options={people} value={userIds} onChange={setUserIds} multi closeOnSelect={false} placeholder="Pick people" />
             </div>
         </Modal>
     );
@@ -89,32 +107,37 @@ export default definePlugin({
     required: true,
     hidden: true,
 
+    settings,
+
     stop() {
         rules.clear();
     },
 
     flux: {
         MESSAGE_CREATE({ message, channelId, optimistic }: { message: Message; channelId: string; optimistic?: boolean; }) {
+            const authorId = message.author?.id;
             const rule = rules.get(channelId);
-            if (optimistic || rule?.userId !== message.author?.id) return;
-            return react(channelId, message.id, rule);
+            const reaction = rule?.userIds.includes(authorId) ? rule : authorId === UserStore.getCurrentUser().id ? settings.store.everywhere : null;
+            if (optimistic || !reaction) return;
+            return react(channelId, message.id, reaction);
         }
     },
 
     contextMenus: {
         "channel-attach"(children, { channel }: { channel: Channel; }) {
-            const on = rules.has(channel.id);
             children.push(
                 <Menu.MenuItem
                     id="vc-auto-react"
-                    label={on ? "Stop Auto React" : "Auto React"}
-                    action={() => {
-                        if (!on) return openModal(p => <AutoReactModal modalProps={p} channel={channel} />);
-                        rules.delete(channel.id);
-                        showToast({ text: "Auto React is off.", variant: "success", position: "bottom" });
-                    }}
+                    label="Auto React"
+                    action={() => openModal(p => <AutoReactModal modalProps={p} channel={channel} />)}
                 />
             );
+            if (rules.has(channel.id)) {
+                children.push(<Menu.MenuItem id="vc-auto-react-stop" label="Stop Auto React in this chat" action={() => rules.delete(channel.id)} />);
+            }
+            if (settings.store.everywhere) {
+                children.push(<Menu.MenuItem id="vc-auto-react-stop-all" label="Stop Auto React everywhere" action={() => { settings.store.everywhere = null; }} />);
+            }
         }
     }
 });
