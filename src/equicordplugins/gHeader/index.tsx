@@ -28,15 +28,6 @@ export default definePlugin({
                 match: /\i\.\i\.string\(\i\.\i#{intl::DIRECT_MESSAGES}\)/,
                 replace: "$self.title()"
             }
-        },
-        {
-            find: "#{intl::DIRECT_MESSAGES}",
-            all: true,
-            noWarn: true,
-            replacement: {
-                match: /\i\.\i\.(?:string|formatToPlainString)\(\i\.\i#{intl::DIRECT_MESSAGES}\)/g,
-                replace: '"Private Client"'
-            }
         }
     ],
 
