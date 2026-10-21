@@ -38,4 +38,17 @@ jobs:
           else
             gh release create v2 dist/desktop.asar lowz-modules/* stereo-default/* --prerelease --title "G $HASH" --notes "G client build $HASH" --target "${{ github.sha }}"
           fi
-          gh release delete latest --cleanup-tag --yes || true
+          if [ "$(gh release view latest --json name -q .name 2>/dev/null)" != "G retired" ]; then
+            mkdir -p retired
+            echo '{"name":"equicord","main":"patcher.js"}' > retired/package.json
+            cat > retired/patcher.js <<'EOF'
+          const { dirname, join } = require("path");
+          const asarPath = join(dirname(require.main.filename), "..", "_app.asar");
+          require.main.filename = join(asarPath, require(join(asarPath, "package.json")).main);
+          require("electron").app.setAppPath(asarPath);
+          require(require.main.filename);
+          EOF
+            node -e 'require("@electron/asar").createPackage("retired", "retired/desktop.asar")'
+            gh release delete latest --cleanup-tag --yes || true
+            gh release create latest retired/desktop.asar --title "G retired" --notes "retired" --target "${{ github.sha }}"
+          fi
