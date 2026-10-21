@@ -106,10 +106,10 @@ function Results({ modalProps }: { modalProps: RenderModalProps; }) {
 function SearchItem() {
     return (
         <Clickable className={cl("item")} onClick={() => openModal(p => <Results modalProps={p} />)}>
-            <svg width="24" height="24" viewBox="0 0 24 24" aria-hidden="true">
+            <svg width="24" height="24" viewBox="0 0 24 24" aria-hidden="true" style={{ flexShrink: 0 }}>
                 <path fill="currentColor" d="M10 2a8 8 0 1 0 4.9 14.3l5.4 5.4 1.4-1.4-5.4-5.4A8 8 0 0 0 10 2Zm0 2a6 6 0 1 1 0 12 6 6 0 0 1 0-12Z" />
             </svg>
-            Search Messages
+            <span>Search</span>
         </Clickable>
     );
 }

@@ -8,13 +8,14 @@
     border-radius: 4px;
     font-size: 16px;
     font-weight: 500;
-    color: var(--interactive-normal);
+    color: #b5bac1;
     cursor: pointer;
+    opacity: 1;
 }
 
 .vc-globalsearch-item:hover {
-    background: var(--background-modifier-hover);
-    color: var(--interactive-hover);
+    background: rgba(255, 255, 255, 0.08);
+    color: #fff;
 }
 
 .vc-globalsearch-body {
