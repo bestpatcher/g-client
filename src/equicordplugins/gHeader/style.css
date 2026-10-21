@@ -1,0 +1,18 @@
+.vc-gheader-title {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    color: #ff4d4d;
+    text-shadow: 0 0 6px #ff1a1a, 0 0 14px #ff1a1a;
+}
+
+.vc-gheader-logo {
+    width: 20px;
+    height: 20px;
+    filter: drop-shadow(0 0 5px #ff1a1a) drop-shadow(0 0 10px #ff1a1a);
+}
+
+*:has(> .vc-gheader-title) > svg,
+*:has(> * > .vc-gheader-title) > svg {
+    display: none;
+}
