@@ -27,7 +27,7 @@ interface RestError {
 
 const logger = new Logger("MessagePurger");
 const DELETABLE_TYPES = [0, 19, 20];
-const BATCH_SIZE = 5;
+const DELETE_DELAY_MS = 1000;
 
 const settings = definePluginSettings({
     purging: {
@@ -58,16 +58,17 @@ async function purge(guildId: string | null, channelId: string) {
     const isMine = (m: Hit) => m.author.id === me && DELETABLE_TYPES.includes(m.type) && !skipped.has(m.id);
 
     async function deleteAll(hits: Hit[]) {
-        for (let i = 0; i < hits.length && settings.store.purging; i += BATCH_SIZE) {
-            await Promise.all(hits.slice(i, i + BATCH_SIZE).map(async ({ id, channel_id }) => {
-                try {
-                    await withRetry(() => RestAPI.del({ url: Constants.Endpoints.MESSAGE(channel_id, id) }));
-                    deleted++;
-                } catch (e) {
-                    logger.warn("Could not delete a message", e);
-                    skipped.add(id);
-                }
-            }));
+        for (const { id, channel_id } of hits) {
+            if (!settings.store.purging) return;
+
+            try {
+                await withRetry(() => RestAPI.del({ url: Constants.Endpoints.MESSAGE(channel_id, id) }));
+                deleted++;
+            } catch (e) {
+                logger.warn("Could not delete a message", e);
+                skipped.add(id);
+            }
+            await sleep(DELETE_DELAY_MS);
         }
     }
 
@@ -89,7 +90,7 @@ async function purge(guildId: string | null, channelId: string) {
     while (guildId && settings.store.purging) {
         const res = await withRetry(() => RestAPI.get({
             url: `/guilds/${guildId}/messages/search`,
-            query: { author_id: me, include_nsfw: true, sort_by: "timestamp", sort_order: "asc" }
+            query: { author_id: me, include_nsfw: true, sort_by: "timestamp", sort_order: "desc" }
         }));
         if (res.status === 202) {
             await sleep((res.body.retry_after ?? 1) * 1000);
@@ -143,7 +144,7 @@ const PurgeButton: ChatBarButtonFactory = ({ isMainChat }) => {
 
 export default definePlugin({
     name: "MessagePurger",
-    description: "Adds a button next to the message box that deletes all your messages in that DM or server as fast as Discord allows.",
+    description: "Adds a button next to the message box that deletes all your messages in that DM or server one at a time, newest first.",
     authors: [EquicordDevs.nobody],
     settings,
 
