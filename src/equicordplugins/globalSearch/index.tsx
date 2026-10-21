@@ -15,23 +15,24 @@ interface Hit extends Message {
     hit?: boolean;
 }
 
-interface Target {
-    url: string;
-}
-
-const MAX_DMS = 50;
-
-async function search(url: string, content: string): Promise<Hit[]> {
-    while (true) {
+async function search(url: string, content: string, onPage: (hits: Hit[]) => boolean) {
+    for (let offset = 0, total = 1; offset < total; offset += 25) {
         try {
-            const res = await RestAPI.get({ url, query: { content, include_nsfw: true } });
-            if (res.status !== 202) return res.body.messages.map((group: Hit[]) => group.find(m => m.hit) ?? group[0]);
-            await sleep((res.body.retry_after ?? 1) * 1000);
+            const res = await RestAPI.get({ url, query: { content, include_nsfw: true, offset } });
+            if (res.status === 202) {
+                await sleep((res.body.retry_after ?? 1) * 1000);
+                offset -= 25;
+                continue;
+            }
+            total = res.body.total_results;
+            if (onPage(res.body.messages.map((group: Hit[]) => group.find(m => m.hit) ?? group[0]))) return;
         } catch (e) {
             const { status, body } = e as { status?: number; body?: { retry_after?: number; }; };
-            if (status !== 429) return [];
+            if (status !== 429) return;
             await sleep((body?.retry_after ?? 1) * 1000);
+            offset -= 25;
         }
+        await sleep(300);
     }
 }
 
@@ -48,18 +49,19 @@ function Results({ modalProps, query }: { modalProps: RenderModalProps; query: s
 
     useEffect(() => {
         let stopped = false;
-        const targets: Target[] = [
-            ...ChannelStore.getSortedPrivateChannels().slice(0, MAX_DMS).map(c => ({ url: `/channels/${c.id}/messages/search` })),
-            ...GuildStore.getGuildIds().map(id => ({ url: `/guilds/${id}/messages/search` }))
+        const targets = [
+            ...ChannelStore.getSortedPrivateChannels().map(c => `/channels/${c.id}/messages/search`),
+            ...GuildStore.getGuildIds().map(id => `/guilds/${id}/messages/search`)
         ];
 
         (async () => {
-            for (const [i, { url }] of targets.entries()) {
+            for (const [i, url] of targets.entries()) {
                 if (stopped) return;
                 setProgress(`Searching ${i + 1} of ${targets.length}...`);
-                const found = await search(url, query);
-                if (found.length) setHits(prev => [...prev, ...found]);
-                await sleep(300);
+                await search(url, query, found => {
+                    if (!stopped) setHits(prev => [...prev, ...found]);
+                    return stopped;
+                });
             }
             setProgress("Done.");
         })();
