@@ -68,7 +68,6 @@ export default definePlugin({
     dependencies: ["CommandsAPI"],
     tags: ["Media", "Commands"],
     authors: [Devs.katlyn],
-    required: true,
     commands: [
         makeCommand("track", track => `https://open.spotify.com/track/${track.id}`),
         makeCommand("album", track => `https://open.spotify.com/album/${track.album.id}`),
