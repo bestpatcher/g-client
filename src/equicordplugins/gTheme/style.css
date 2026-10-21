@@ -1,23 +1,23 @@
 body:has([data-settings-sidebar-item]) {
     --background-base-lowest: #000;
-    --background-base-lower: #020a04;
-    --background-base-low: #040f06;
-    --background-surface-high: #07160a;
-    --background-surface-higher: #0a1e0e;
-    --background-primary: #040f06;
-    --background-secondary: #020a04;
+    --background-base-lower: #0d0203;
+    --background-base-low: #140304;
+    --background-surface-high: #1e0507;
+    --background-surface-higher: #2a0709;
+    --background-primary: #140304;
+    --background-secondary: #0d0203;
     --background-tertiary: #000;
-    --background-floating: #07160a;
-    --brand-500: #00c853;
-    --text-brand: #39ff14;
+    --background-floating: #1e0507;
+    --brand-500: #e53935;
+    --text-brand: #ff1744;
 }
 
 [data-settings-sidebar-item] > div {
-    background: transparent !important; /* Drops Discord's grey hover and selected fill so the green shows */
+    background: transparent !important; /* Drops Discord's grey hover and selected fill so the red shows */
 }
 
 [data-settings-sidebar-item] > div:hover {
-    background: #0a1e0e !important; /* Hover fill for the black and green look */
+    background: #2a0709 !important; /* Hover fill for the black and red look */
 }
 
 [data-settings-sidebar-item] > div,
@@ -26,33 +26,33 @@ body:has([data-settings-sidebar-item]) {
 }
 
 [data-settings-sidebar-item]:nth-child(8n+1) {
-    --vc-gtheme-color: #39ff14;
+    --vc-gtheme-color: #ff1744;
 }
 
 [data-settings-sidebar-item]:nth-child(8n+2) {
-    --vc-gtheme-color: #00e676;
+    --vc-gtheme-color: #ff5252;
 }
 
 [data-settings-sidebar-item]:nth-child(8n+3) {
-    --vc-gtheme-color: #69f0ae;
+    --vc-gtheme-color: #ff4081;
 }
 
 [data-settings-sidebar-item]:nth-child(8n+4) {
-    --vc-gtheme-color: #1de9b6;
+    --vc-gtheme-color: #f50057;
 }
 
 [data-settings-sidebar-item]:nth-child(8n+5) {
-    --vc-gtheme-color: #76ff03;
+    --vc-gtheme-color: #ff6e6e;
 }
 
 [data-settings-sidebar-item]:nth-child(8n+6) {
-    --vc-gtheme-color: #00c853;
+    --vc-gtheme-color: #e53935;
 }
 
 [data-settings-sidebar-item]:nth-child(8n+7) {
-    --vc-gtheme-color: #64ffda;
+    --vc-gtheme-color: #ff867c;
 }
 
 [data-settings-sidebar-item]:nth-child(8n+8) {
-    --vc-gtheme-color: #b2ff59;
+    --vc-gtheme-color: #d50000;
 }
