@@ -55,30 +55,9 @@ async function purge(guildId: string | null, channelId: string) {
     const skipped = new Set<string>();
     let deleted = 0;
 
-    settings.store.purging = true;
-    showToast({ text: "Purge started.", variant: "success", position: "bottom" });
+    const isMine = (m: Hit) => m.author.id === me && DELETABLE_TYPES.includes(m.type) && !skipped.has(m.id);
 
-    while (settings.store.purging) {
-        const res = await withRetry(() => RestAPI.get({
-            url: guildId ? `/guilds/${guildId}/messages/search` : `/channels/${channelId}/messages/search`,
-            query: {
-                author_id: me,
-                include_nsfw: true,
-                sort_by: "timestamp",
-                sort_order: "asc"
-            }
-        }));
-        if (res.status === 202) {
-            await sleep((res.body.retry_after ?? 1) * 1000);
-            continue;
-        }
-
-        const hits: Hit[] = res.body.messages
-            .flat()
-            .filter((m: Hit) => m.author.id === me && DELETABLE_TYPES.includes(m.type) && !skipped.has(m.id));
-        logger.info("Search returned", hits.length, "deletable messages");
-        if (!hits.length) break;
-
+    async function deleteAll(hits: Hit[]) {
         for (let i = 0; i < hits.length && settings.store.purging; i += BATCH_SIZE) {
             await Promise.all(hits.slice(i, i + BATCH_SIZE).map(async ({ id, channel_id }) => {
                 try {
@@ -90,6 +69,38 @@ async function purge(guildId: string | null, channelId: string) {
                 }
             }));
         }
+    }
+
+    settings.store.purging = true;
+    showToast({ text: "Purge started.", variant: "success", position: "bottom" });
+
+    // Walks the channel history, which is always up to date, unlike search.
+    let before: string | undefined;
+    while (settings.store.purging) {
+        const res = await withRetry(() => RestAPI.get({ url: `/channels/${channelId}/messages`, query: { limit: 100, before } }));
+        const messages: Hit[] = res.body;
+        if (!messages.length) break;
+
+        before = messages[messages.length - 1].id;
+        await deleteAll(messages.filter(isMine));
+    }
+
+    // Search is the only way to reach the other channels of a server, but it can lag behind.
+    while (guildId && settings.store.purging) {
+        const res = await withRetry(() => RestAPI.get({
+            url: `/guilds/${guildId}/messages/search`,
+            query: { author_id: me, include_nsfw: true, sort_by: "timestamp", sort_order: "asc" }
+        }));
+        if (res.status === 202) {
+            await sleep((res.body.retry_after ?? 1) * 1000);
+            continue;
+        }
+
+        const hits: Hit[] = res.body.messages.flat().filter(isMine);
+        logger.info("Search returned", hits.length, "deletable messages");
+        if (!hits.length) break;
+
+        await deleteAll(hits);
     }
 
     settings.store.purging = false;
