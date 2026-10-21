@@ -37,16 +37,21 @@ interface RestError {
 const rules = new Map<string, Rule>();
 
 async function react(channelId: string, messageId: string, { emoji, burst }: Reaction) {
-    while (true) {
-        try {
-            return await RestAPI.put({
-                url: Constants.Endpoints.REACTION(channelId, messageId, emoji, "@me"),
-                query: burst ? { type: 1 } : undefined
-            });
-        } catch (e) {
-            const { status, body } = e as RestError;
-            if (status !== 429) throw e;
-            await sleep((body?.retry_after ?? 1) * 1000);
+    const variants = emoji.includes(":") ? [emoji] : [emoji, emoji.includes("\uFE0F") ? emoji.replaceAll("\uFE0F", "") : emoji + "\uFE0F"];
+
+    for (const [i, variant] of variants.entries()) {
+        while (true) {
+            try {
+                return await RestAPI.put({
+                    url: Constants.Endpoints.REACTION(channelId, messageId, variant, "@me"),
+                    query: burst ? { type: 1 } : undefined
+                });
+            } catch (e) {
+                const { status, body } = e as RestError;
+                if (status === 429) await sleep((body?.retry_after ?? 1) * 1000);
+                else if (i === variants.length - 1) throw e;
+                else break;
+            }
         }
     }
 }
@@ -58,7 +63,9 @@ function parseEmoji(input: string) {
 
     const name = text.replace(/^:|:$/g, "").toLowerCase();
     const found = Object.values(EmojiStore.getGuilds()).flatMap(g => g._emojis).find(e => e.name.toLowerCase() === name);
-    return found ? `${found.name}:${found.id}` : text;
+    if (found) return `${found.name}:${found.id}`;
+
+    return EmojiStore.getByName(name)?.surrogates ?? text;
 }
 
 function AutoReactModal({ modalProps, channel }: { modalProps: RenderModalProps; channel: Channel; }) {
