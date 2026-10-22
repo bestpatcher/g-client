@@ -14,7 +14,7 @@ import { isAllowed } from "@utils/gAccess";
 import { fetchUserProfile } from "@utils/discord";
 import definePlugin, { OptionType } from "@utils/types";
 import { RenderModalProps, User } from "@vencord/discord-types";
-import { ContextMenuApi, IconUtils, Menu, Modal, openModal, showToast, Text, useEffect, useState, UserStore } from "@webpack/common";
+import { ContextMenuApi, IconUtils, Menu, Modal, openModal, showToast, useEffect, useState, UserStore } from "@webpack/common";
 
 import type * as NativeModule from "./native";
 
@@ -36,13 +36,14 @@ function UsersModal({ modalProps }: { modalProps: RenderModalProps; }) {
 
     return (
         <ErrorBoundary>
-            <Modal {...modalProps} size="md" title={<span style={{ color: "#fff" }}>{`Users on $G (${ids.length})`}</span>}>
-                <div className="vc-gstreamproof-users-content">
-                    {ids.length === 0 && <Text variant="text-md/normal">Nobody has been seen on this client yet.</Text>}
+            <Modal {...modalProps} size="md" title="">
+                <div className="vc-gstreamproof-users-content" style={{ color: "#fff" }}>
+                    <div className="vc-gstreamproof-users-title" style={{ color: "#fff" }}>{`Users on $G (${ids.length})`}</div>
+                    {ids.length === 0 && <div style={{ color: "#fff" }}>Nobody has been seen on this client yet.</div>}
                     {list.map(user => (
                         <div key={user.id} className="vc-gstreamproof-users-row">
                             <img className="vc-gstreamproof-users-avatar" src={IconUtils.getUserAvatarURL(user, true, 64)} />
-                            <Text variant="text-md/normal">{user.globalName ?? user.username}</Text>
+                            <span style={{ color: "#fff" }}>{user.globalName ?? user.username}</span>
                             <img className="vc-gstreamproof-users-logo" src={LOGO} />
                         </div>
                     ))}

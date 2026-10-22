@@ -14,7 +14,7 @@ import { isAllowed } from "@utils/gAccess";
 import ErrorBoundary from "@components/ErrorBoundary";
 import definePlugin from "@utils/types";
 import { Message, RenderModalProps, User } from "@vencord/discord-types";
-import { IconUtils, Menu, Modal, moment, openModal, Text, UserProfileStore, UserStore } from "@webpack/common";
+import { IconUtils, Menu, Modal, moment, openModal, UserProfileStore, UserStore } from "@webpack/common";
 
 type Field = "name" | "username" | "avatar" | "banner" | "bio";
 type Snapshot = Partial<Record<Field, string | null>>;
@@ -59,10 +59,10 @@ function avatarUrl(id: string, hash: string) {
 }
 
 function Value({ id, field, value }: { id: string; field: Field; value: string | null; }) {
-    if (!value) return <Text variant="text-sm/normal" className={cl("none")}>none</Text>;
+    if (!value) return <span className={cl("none")} style={{ color: "#fff" }}>none</span>;
     if (field === "avatar") return <img className={cl("avatar")} src={avatarUrl(id, value)} />;
     if (field === "banner") return <img className={cl("banner")} src={IconUtils.getUserBannerURL({ id, banner: value, canAnimate: true, size: 300 })} />;
-    return <Text variant="text-sm/normal">{value}</Text>;
+    return <span style={{ color: "#fff" }}>{value}</span>;
 }
 
 function pastValues(changes: Change[], field: Field) {
@@ -81,20 +81,20 @@ function HistoryModalContent({ user }: { user: User; }) {
     const pastNames = pastValues(changes, "name").filter(v => v !== (user.globalName ?? user.username));
 
     return (
-        <div className={cl("content")}>
+        <div className={cl("content")} style={{ color: "#fff" }}>
             {(pastUsernames.length > 0 || pastNames.length > 0) && (
                 <div className={cl("known")}>
-                    {pastNames.length > 0 && <Text variant="text-sm/normal">Past display names: {pastNames.join(", ")}</Text>}
-                    {pastUsernames.length > 0 && <Text variant="text-sm/normal">Past usernames: {pastUsernames.join(", ")}</Text>}
+                    {pastNames.length > 0 && <div style={{ color: "#fff" }}>Past display names: {pastNames.join(", ")}</div>}
+                    {pastUsernames.length > 0 && <div style={{ color: "#fff" }}>Past usernames: {pastUsernames.join(", ")}</div>}
                 </div>
             )}
-            {changes.length === 0 && <Text variant="text-md/normal">No changes saved for this person yet.</Text>}
+            {changes.length === 0 && <div style={{ color: "#fff" }}>No changes saved for this person yet.</div>}
             {changes.map(c => (
                 <div key={c.time + c.field} className={cl("row")}>
-                    <Text variant="text-sm/normal" className={cl("meta")}>{FIELDS[c.field]} changed {moment(c.time).format("MMM D, YYYY h:mm A")}</Text>
+                    <div className={cl("meta")} style={{ color: "#fff" }}>{FIELDS[c.field]} changed {moment(c.time).format("MMM D, YYYY h:mm A")}</div>
                     <div className={cl("values")}>
                         <Value id={user.id} field={c.field} value={c.old} />
-                        <span>→</span>
+                        <span style={{ color: "#fff" }}>→</span>
                         <Value id={user.id} field={c.field} value={c.now} />
                     </div>
                 </div>
@@ -106,7 +106,8 @@ function HistoryModalContent({ user }: { user: User; }) {
 function HistoryModal({ user, modalProps }: { user: User; modalProps: RenderModalProps; }) {
     return (
         <ErrorBoundary>
-            <Modal {...modalProps} size="md" title={`${user.globalName ?? user.username} history`}>
+            <Modal {...modalProps} size="md" title="">
+                <div style={{ color: "#fff", fontWeight: 600, fontSize: "18px", marginBottom: "12px" }}>{`${user.globalName ?? user.username} history`}</div>
                 <HistoryModalContent user={user} />
             </Modal>
         </ErrorBoundary>
