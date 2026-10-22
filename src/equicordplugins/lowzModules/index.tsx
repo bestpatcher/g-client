@@ -32,6 +32,13 @@ function LowzModulesTab() {
         setMessage(res.success ? "Done. Restart Discord to apply." : res.error ?? "Something went wrong.");
     }
 
+    async function openSauce() {
+        setBusy(true);
+        const res = await Native.openPatcher();
+        setBusy(false);
+        setMessage(res.success ? "Opened." : res.error ?? "Something went wrong.");
+    }
+
     return (
         <SettingsTab>
             <Heading>Lowz Modules</Heading>
@@ -42,6 +49,8 @@ function LowzModulesTab() {
                 <Button disabled={busy} onClick={() => run(Native.changeModules)}>Change Modules</Button>
                 {" "}
                 <Button variant="secondary" disabled={busy} onClick={() => run(Native.stereoDefault)}>Stereo Default</Button>
+                {" "}
+                <Button variant="secondary" disabled={busy} onClick={openSauce}>Open Da Sauce</Button>
             </div>
             {message && <Paragraph className={Margins.bottom16}>{message}</Paragraph>}
             {done && <Button onClick={relaunch}>Restart Discord</Button>}

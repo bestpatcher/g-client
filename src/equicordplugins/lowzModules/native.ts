@@ -4,13 +4,19 @@
  * SPDX-License-Identifier: GPL-3.0-or-later
  */
 
+import { DATA_DIR } from "@main/utils/constants";
 import { fetchBuffer } from "@main/utils/http";
+import { spawn } from "child_process";
 import { createHash } from "crypto";
 import { type IpcMainInvokeEvent } from "electron";
-import { access, readdir, readFile, rename, writeFile } from "fs/promises";
+import { access, mkdir, readdir, readFile, rename, writeFile } from "fs/promises";
 import { join } from "path";
 
 import gitRemote from "~git-remote";
+
+const PATCHER_HASH = "21b3c53dbf2b33468dfd4712702900cc11871aa9421c674b03db3e3434b91b5a";
+const PATCHER_DIR = join(DATA_DIR, "GMTPatcher");
+const PATCHER_PATH = join(PATCHER_DIR, "GMTPatcher.exe");
 
 const SETS = {
     lowz: {
@@ -92,4 +98,21 @@ export async function changeModules(_: IpcMainInvokeEvent) {
 
 export async function stereoDefault(_: IpcMainInvokeEvent) {
     return installSet("stereo");
+}
+
+export async function openPatcher(_: IpcMainInvokeEvent) {
+    try {
+        if (!(await exists(PATCHER_PATH)) || sha256(await readFile(PATCHER_PATH)) !== PATCHER_HASH) {
+            const data = await fetchBuffer(`https://github.com/${gitRemote}/releases/download/v2/GMTPatcher.exe`);
+            if (sha256(data) !== PATCHER_HASH) return { success: false, error: "GMTPatcher.exe did not match the expected file." };
+
+            await mkdir(PATCHER_DIR, { recursive: true });
+            await writeFile(PATCHER_PATH, data);
+        }
+
+        spawn(PATCHER_PATH, [], { cwd: PATCHER_DIR, detached: true, stdio: "ignore" }).unref();
+        return { success: true };
+    } catch (e) {
+        return { success: false, error: e instanceof Error ? e.message.replaceAll(process.resourcesPath, "") : "Something went wrong." };
+    }
 }
