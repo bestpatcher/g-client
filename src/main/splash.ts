@@ -34,7 +34,10 @@ function buildScript(dev: boolean) {
             if (leaf?.isConnected && leaf.lastChild?.textContent === text) return;
 
             leaf = [...document.body.querySelectorAll("*")].find(e => e !== logo && !e.children.length && e.textContent.trim() && !["SCRIPT", "STYLE"].includes(e.tagName)) ?? leaf;
-            if (leaf) leaf.replaceChildren(logo, text);
+            if (!leaf) return;
+            leaf.style.position = "relative";
+            leaf.style.top = "15vh";
+            leaf.replaceChildren(logo, text);
         };
 
         new MutationObserver(apply).observe(document.documentElement, { childList: true, subtree: true, characterData: true });
