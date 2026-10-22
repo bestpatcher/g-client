@@ -1,3 +1,4 @@
 .messagelogger-deleted {
-    background-color: hsl(var(--red-430-hsl, 0 85% 61%) / 15%) !important;
+    background-color: hsl(var(--red-430-hsl, 0 85% 61%) / 15%) !important; /* Replaces Discord's message background so deleted messages stand out */
+    box-shadow: inset 3px 0 0 #ff1a1a, 0 0 10px rgba(255, 26, 26, 0.5) !important; /* Red edge and glow around the deleted message */
 }
