@@ -1,12 +1,12 @@
 .messagelogger-deleted {
-    --text-default: var(--status-danger, #f04747);
-    --interactive-icon-default: var(--status-danger, #f04747);
-    --text-muted: var(--status-danger, #f04747);
-    --embed-title: var(--red-460, #be3535);
-    --text-link: var(--red-460, #be3535);
-    --text-strong: var(--red-460, #be3535);
+    --text-default: #fff;
+    --interactive-icon-default: #fff;
+    --text-muted: #fff;
+    --embed-title: #fff;
+    --text-link: #fff;
+    --text-strong: #fff;
 }
 .messagelogger-deleted {
-    background-color: hsl(var(--red-430-hsl, 0 85% 61%) / 15%) !important; /* Replaces Discord's message background so deleted messages stand out */
-    box-shadow: inset 3px 0 0 #ff1a1a, 0 0 10px rgba(255, 26, 26, 0.5) !important; /* Red edge and glow around the deleted message */
+    background-color: rgba(255, 255, 255, 0.1) !important; /* Replaces Discord's message background so deleted messages stand out */
+    box-shadow: inset 3px 0 0 #fff, 0 0 10px rgba(255, 255, 255, 0.6) !important; /* White edge and glow around the deleted message */
 }
