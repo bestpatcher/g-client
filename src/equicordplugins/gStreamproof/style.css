@@ -26,3 +26,8 @@
     height: 16px;
     margin-left: auto;
 }
+
+.vc-gstreamproof-users-content,
+.vc-gstreamproof-users-content * {
+    color: #fff;
+}

@@ -36,7 +36,7 @@ function UsersModal({ modalProps }: { modalProps: RenderModalProps; }) {
 
     return (
         <ErrorBoundary>
-            <Modal {...modalProps} size="md" title={`Users on $G (${ids.length})`}>
+            <Modal {...modalProps} size="md" title={<span style={{ color: "#fff" }}>{`Users on $G (${ids.length})`}</span>}>
                 <div className="vc-gstreamproof-users-content">
                     {ids.length === 0 && <Text variant="text-md/normal">Nobody has been seen on this client yet.</Text>}
                     {list.map(user => (
