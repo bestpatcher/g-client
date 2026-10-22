@@ -14,7 +14,7 @@ const logger = new Logger("GSplash");
 
 function buildScript(dev: boolean) {
     const text = dev ? "Developer Mode.." : "Private $G Client..";
-    const filter = dev ? "hue-rotate(30deg) drop-shadow(0 0 6px #ff9500) drop-shadow(0 0 14px rgba(255, 149, 0, 0.75))" : "none";
+    const filter = dev ? "drop-shadow(0 0 6px #ff9500) drop-shadow(0 0 14px rgba(255, 149, 0, 0.75))" : "none";
 
     return `(() => {
         const text = ${JSON.stringify(text)};
