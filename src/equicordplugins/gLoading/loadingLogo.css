@@ -1,0 +1,12 @@
+*:has(> video)::before {
+    content: "";
+    display: block;
+    width: 140px;
+    height: 140px;
+    margin: 0 auto;
+    background: url("https://equicord.org/assets/favicon.png") center / contain no-repeat;
+}
+
+video {
+    display: none !important; /* Replaces Discord's animated loading logo */
+}

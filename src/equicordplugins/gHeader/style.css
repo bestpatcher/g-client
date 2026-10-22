@@ -30,3 +30,17 @@
 *:has(> * > .vc-gheader-title) > svg {
     display: none;
 }
+
+.vc-gheader-title.vc-gheader-dev {
+    color: #ff9500;
+    text-shadow: 0 0 4px #ff9500, 0 0 8px rgba(255, 149, 0, 0.6);
+}
+
+[data-gheader][data-gdev] *:not(svg, path) {
+    color: #ff9500;
+}
+
+[data-gheader][data-gdev] *:not(:has(*)):not(:empty)::after {
+    content: "Dev Build";
+    text-shadow: 0 0 4px #ff9500, 0 0 8px rgba(255, 149, 0, 0.6);
+}

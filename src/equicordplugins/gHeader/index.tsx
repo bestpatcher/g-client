@@ -9,6 +9,7 @@ import "./style.css";
 import { addSurfacePropsProvider } from "@api/SurfaceClasses";
 import ErrorBoundary from "@components/ErrorBoundary";
 import { EquicordDevs } from "@utils/constants";
+import { useAccess } from "@utils/gAccess";
 import definePlugin from "@utils/types";
 
 let removeProvider = () => { };
@@ -39,5 +40,8 @@ export default definePlugin({
         removeProvider();
     },
 
-    title: ErrorBoundary.wrap(() => <span className="vc-gheader-title">Private Client</span>, { noop: true })
+    title: ErrorBoundary.wrap(() => {
+        const dev = useAccess();
+        return <span className={dev ? "vc-gheader-title vc-gheader-dev" : "vc-gheader-title"}>{dev ? "Dev Build" : "Private Client"}</span>;
+    }, { noop: true })
 });

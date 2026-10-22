@@ -4,6 +4,7 @@
  * SPDX-License-Identifier: GPL-3.0-or-later
  */
 
+import { addGlobalContextMenuPatch, GlobalContextMenuPatchCallback, removeGlobalContextMenuPatch } from "@api/ContextMenu";
 import { definePluginSettings } from "@api/Settings";
 import { Button } from "@components/Button";
 import { addUserAreaButton, removeUserAreaButton, UserAreaButton, UserAreaButtonFactory, UserAreaRenderProps } from "@api/UserArea";
@@ -12,7 +13,7 @@ import { copyWithToast } from "@utils/discord";
 import { Logger } from "@utils/Logger";
 import definePlugin, { OptionType } from "@utils/types";
 import { find } from "@webpack";
-import { FluxDispatcher, MediaEngineStore, SelectedChannelStore, showToast } from "@webpack/common";
+import { FluxDispatcher, MediaEngineStore, Menu, SelectedChannelStore, showToast } from "@webpack/common";
 
 const logger = new Logger("GVoice");
 
@@ -47,6 +48,10 @@ const settings = definePluginSettings({
         description: "Show everyone that you are deafened and muted. You can still hear and talk.",
         default: false,
         onChange: () => resendVoiceState()
+    },
+    menuReady: {
+        type: OptionType.CUSTOM,
+        default: false
     },
     diagnostics: {
         type: OptionType.COMPONENT,
@@ -333,8 +338,46 @@ function HeadphonesIcon({ className, slashed }: { className?: string; slashed?: 
     );
 }
 
+function toggleFake(key: "fakeMute" | "fakeDeafen") {
+    settings.store[key] = !settings.store[key];
+    resendVoiceState();
+    notify(`${key === "fakeMute" ? "Fake mute" : "Fake deafen"} ${settings.store[key] ? "on" : "off"}${senderName ? "" : ". Rejoin the voice channel to apply"}`);
+}
+
+function collectIds(nodes: unknown, ids: string[] = []) {
+    for (const node of Array.isArray(nodes) ? nodes : [nodes]) {
+        const props = (node as { props?: { id?: unknown; children?: unknown; }; } | null)?.props;
+        if (!props) continue;
+        if (typeof props.id === "string") ids.push(props.id);
+        collectIds(props.children, ids);
+    }
+    return ids;
+}
+
+const voiceMenuPatch: GlobalContextMenuPatchCallback = (_navId, children) => {
+    const ids = collectIds(children);
+    const input = ids.some(id => /^input-(device|volume|profile|mode)/.test(id));
+    const output = ids.some(id => /^output-(device|volume)/.test(id));
+    if (input === output) return;
+
+    const key = input ? "fakeMute" : "fakeDeafen";
+    settings.store.menuReady = true;
+    children.push(
+        <Menu.MenuGroup>
+            <Menu.MenuCheckboxItem
+                id={`g-${key}`}
+                label={input ? "Fake Mute" : "Fake Deafen"}
+                checked={settings.store[key]}
+                action={() => toggleFake(key)}
+            />
+        </Menu.MenuGroup>
+    );
+};
+
 function FakeMuteButton({ iconForeground, hideTooltips, nameplate }: UserAreaRenderProps) {
-    const { fakeMute } = settings.use(["fakeMute"]);
+    const { fakeMute, menuReady } = settings.use(["fakeMute", "menuReady"]);
+    if (menuReady) return null;
+
     return (
         <UserAreaButton
             tooltipText={hideTooltips ? void 0 : fakeMute ? "Fake Mute: on" : "Fake Mute: off"}
@@ -343,17 +386,15 @@ function FakeMuteButton({ iconForeground, hideTooltips, nameplate }: UserAreaRen
             aria-checked={fakeMute}
             redGlow={fakeMute}
             plated={nameplate != null}
-            onClick={() => {
-                settings.store.fakeMute = !settings.store.fakeMute;
-                resendVoiceState();
-                notify(`Fake mute ${settings.store.fakeMute ? "on" : "off"}${senderName ? "" : ". Rejoin the voice channel to apply"}`);
-            }}
+            onClick={() => toggleFake("fakeMute")}
         />
     );
 }
 
 function FakeDeafenButton({ iconForeground, hideTooltips, nameplate }: UserAreaRenderProps) {
-    const { fakeDeafen } = settings.use(["fakeDeafen"]);
+    const { fakeDeafen, menuReady } = settings.use(["fakeDeafen", "menuReady"]);
+    if (menuReady) return null;
+
     return (
         <UserAreaButton
             tooltipText={hideTooltips ? void 0 : fakeDeafen ? "Fake Deafen: on" : "Fake Deafen: off"}
@@ -362,11 +403,7 @@ function FakeDeafenButton({ iconForeground, hideTooltips, nameplate }: UserAreaR
             aria-checked={fakeDeafen}
             redGlow={fakeDeafen}
             plated={nameplate != null}
-            onClick={() => {
-                settings.store.fakeDeafen = !settings.store.fakeDeafen;
-                resendVoiceState();
-                notify(`Fake deafen ${settings.store.fakeDeafen ? "on" : "off"}${senderName ? "" : ". Rejoin the voice channel to apply"}`);
-            }}
+            onClick={() => toggleFake("fakeDeafen")}
         />
     );
 }
@@ -379,7 +416,7 @@ export default definePlugin({
     description: "Stereo or mono microphone, plus fake mute and fake deafen buttons next to your voice controls.",
     tags: ["Utility", "Voice"],
     authors: [EquicordDevs.nobody],
-    dependencies: ["UserAreaAPI"],
+    dependencies: ["UserAreaAPI", "ContextMenuAPI"],
     enabledByDefault: true,
     settings,
 
@@ -433,6 +470,7 @@ export default definePlugin({
         logger.info("GVoice started");
         installSendHook();
         if (settings.store.micBoost > 100) applyMicBoost();
+        addGlobalContextMenuPatch(voiceMenuPatch);
         addUserAreaButton("g-fake-mute", fakeMuteFactory, 90);
         addUserAreaButton("g-fake-deafen", fakeDeafenFactory, 91);
         hookVoiceConnectionClass();
@@ -440,6 +478,7 @@ export default definePlugin({
     },
 
     stop() {
+        removeGlobalContextMenuPatch(voiceMenuPatch);
         removeUserAreaButton("g-fake-mute");
         removeUserAreaButton("g-fake-deafen");
 

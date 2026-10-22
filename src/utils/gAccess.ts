@@ -4,7 +4,7 @@
  * SPDX-License-Identifier: GPL-3.0-or-later
  */
 
-import { UserStore } from "@webpack/common";
+import { useEffect, useState, UserStore } from "@webpack/common";
 
 const ALLOWED = [
     "d8a7056cef8461b0a4caeeb69f7bc67957d81b6b106bc797850bdefd82c5ea74",
@@ -23,4 +23,14 @@ export async function checkAccess() {
 
 export function resetAccess() {
     allowed = false;
+}
+
+export function useAccess() {
+    const [ok, setOk] = useState(allowed);
+
+    useEffect(() => {
+        checkAccess().then(() => setOk(allowed));
+    }, []);
+
+    return ok;
 }
