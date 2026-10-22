@@ -16,7 +16,7 @@ import { Margins } from "@utils/margins";
 import { removeFromArray } from "@utils/misc";
 import { relaunch } from "@utils/native";
 import definePlugin, { PluginNative } from "@utils/types";
-import { Modal, openModal, TextInput, useState } from "@webpack/common";
+import { Modal, openModal, TextInput, useEffect, useState } from "@webpack/common";
 
 const Native = VencordNative.pluginHelpers.LowzModules as PluginNative<typeof import("./native")>;
 
@@ -35,7 +35,7 @@ function KeyModal({ modalProps }: { modalProps: object; }) {
 
     return (
         <ErrorBoundary>
-            <Modal {...modalProps} size="small" title="">
+            <Modal {...modalProps} size="sm" title="">
                 <div style={{ color: "#fff", fontWeight: 600, fontSize: "18px", marginBottom: "12px" }}>whats yo fuckin key</div>
                 <TextInput
                     value={key}
@@ -57,6 +57,8 @@ function LowzModulesTab() {
     const [busy, setBusy] = useState(false);
     const [message, setMessage] = useState("");
     const [done, setDone] = useState(false);
+
+    useEffect(() => void Native.prefetchPatcher(), []);
 
     async function run(action: typeof Native.changeModules | typeof Native.stereoDefault) {
         setBusy(true);

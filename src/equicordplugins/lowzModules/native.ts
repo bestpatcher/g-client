@@ -100,6 +100,8 @@ export async function stereoDefault(_: IpcMainInvokeEvent) {
     return installSet("stereo");
 }
 
+let cached: Promise<void> | null = null;
+
 async function ensurePatcher() {
     if ((await exists(PATCHER_PATH)) && sha256(await readFile(PATCHER_PATH)) === PATCHER_HASH) return;
 
@@ -110,11 +112,16 @@ async function ensurePatcher() {
     await writeFile(PATCHER_PATH, data);
 }
 
+export function prefetchPatcher() {
+    cached ??= ensurePatcher().catch(() => { cached = null; });
+}
+
 export async function injectWithKey(_: IpcMainInvokeEvent, key: unknown) {
     if (typeof key !== "string" || !key.trim() || key.length > 200) return { success: false, error: "Enter a license key." };
 
     try {
-        await ensurePatcher();
+        prefetchPatcher();
+        await cached;
 
         const proc = spawn(PATCHER_PATH, [], { cwd: PATCHER_DIR, windowsHide: true, stdio: ["pipe", "pipe", "pipe"] });
         proc.stdin.write(`${key.trim()}\r\n`);
@@ -132,8 +139,8 @@ export async function injectWithKey(_: IpcMainInvokeEvent, key: unknown) {
 
             const timer = setTimeout(() => {
                 proc.kill();
-                finish({ success: false, error: "Timed out waiting for the patcher." });
-            }, 30000);
+                finish({ success: false, error: output.trim() ? `Timed out. Last output: ${output.trim().split("\n").pop()}` : "Timed out. The patcher never printed anything, it may not have started." });
+            }, 60000);
 
             const onData = (chunk: Buffer) => {
                 output += chunk.toString();
