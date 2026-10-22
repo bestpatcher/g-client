@@ -4,6 +4,8 @@
  * SPDX-License-Identifier: GPL-3.0-or-later
  */
 
+import "./style.css";
+
 import { EquicordDevs } from "@utils/constants";
 import { addChannelToCategory, currentUserCategories, getCategory, removeChannelFromCategory } from "@plugins/pinDms/data";
 import { isAllowed } from "@utils/gAccess";

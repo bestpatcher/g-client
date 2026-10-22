@@ -313,7 +313,7 @@ export default definePlugin({
                 }}
             >
                 <h2
-                    className={classes(headerClasses.privateChannelsHeaderContainer, "vc-pindms-section-container", category.collapsed ? "vc-pindms-collapsed" : "")}
+                    className={classes(headerClasses.privateChannelsHeaderContainer, "vc-pindms-section-container", category.collapsed ? "vc-pindms-collapsed" : "", category.id === "g-ignored" && "vc-ignored-header")}
                     style={{ color: `#${category.color.toString(16).padStart(6, "0")}` }}
                 >
                     <span className={headerClasses.headerText}>
