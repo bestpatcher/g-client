@@ -21,6 +21,7 @@ import electron, { app, BrowserWindowConstructorOptions, Menu } from "electron";
 import { dirname, join } from "path";
 
 import { RendererSettings } from "./settings";
+import { hookSplash } from "./splash";
 import { patchTrayMenu } from "./trayMenu";
 import { IS_VANILLA } from "./utils/constants";
 
@@ -84,6 +85,7 @@ if (!IS_VANILLA) {
         constructor(options: BrowserWindowConstructorOptions) {
             if (!options?.webPreferences?.preload || !options.title) {
                 super(options);
+                hookSplash(this);
                 return;
             }
 
@@ -123,6 +125,7 @@ if (!IS_VANILLA) {
             process.env.DISCORD_PRELOAD = original;
 
             super(options);
+            hookSplash(this);
 
             if (disableMinSize) {
                 // Disable the Electron call entirely so that Discord can't dynamically change the size
