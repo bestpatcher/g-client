@@ -26,11 +26,6 @@
     display: none;
 }
 
-*:has(> .vc-gheader-title) > svg,
-*:has(> * > .vc-gheader-title) > svg {
-    display: none;
-}
-
 .vc-gheader-title.vc-gheader-dev {
     color: #ff9500;
     text-shadow: 0 0 4px #ff9500, 0 0 8px rgba(255, 149, 0, 0.6);
