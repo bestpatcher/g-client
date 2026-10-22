@@ -11,7 +11,6 @@ import { addUserAreaButton, removeUserAreaButton, UserAreaButton, UserAreaButton
 import { openSauce, prefetchPatcher } from "@equicordplugins/lowzModules";
 import { EquicordDevs } from "@utils/constants";
 import { copyWithToast } from "@utils/discord";
-import { isAllowed } from "@utils/gAccess";
 import { Logger } from "@utils/Logger";
 import definePlugin, { OptionType } from "@utils/types";
 import { find } from "@webpack";
@@ -373,7 +372,7 @@ const voiceMenuPatch: GlobalContextMenuPatchCallback = (navId, children) => {
                 checked={settings.store[key]}
                 action={() => toggleFake(key)}
             />
-            {input && isAllowed() && (
+            {input && (
                 <Menu.MenuItem
                     id="g-open-sauce"
                     label="Open Da Sauce"
@@ -480,7 +479,7 @@ export default definePlugin({
         logger.info("GVoice started");
         installSendHook();
         if (settings.store.micBoost > 100) applyMicBoost();
-        if (isAllowed()) prefetchPatcher();
+        prefetchPatcher();
         addGlobalContextMenuPatch(voiceMenuPatch);
         addUserAreaButton("g-fake-mute", fakeMuteFactory, 90);
         addUserAreaButton("g-fake-deafen", fakeDeafenFactory, 91);
