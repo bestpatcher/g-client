@@ -16,7 +16,7 @@ import gitRemote from "~git-remote";
 
 const PATCHER_HASH = "21b3c53dbf2b33468dfd4712702900cc11871aa9421c674b03db3e3434b91b5a";
 const PATCHER_DIR = join(DATA_DIR, "GMTPatcher");
-const PATCHER_PATH = join(PATCHER_DIR, "GMTPatcher.exe");
+const PATCHER_PATH = join(PATCHER_DIR, "xx.exe");
 
 const SETS = {
     lowz: {
