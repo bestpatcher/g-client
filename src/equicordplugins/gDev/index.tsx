@@ -7,9 +7,10 @@
 import "./style.css";
 
 import { addSurfacePropsProvider, notifySurfaceClassesChanged, type SurfaceId } from "@api/SurfaceClasses";
-import { addUserAreaButton, removeUserAreaButton } from "@api/UserArea";
+import { addUserAreaButton, removeUserAreaButton, UserAreaButton, UserAreaRenderProps } from "@api/UserArea";
 import { EquicordDevs } from "@utils/constants";
 import { checkAccess, isAllowed, useAccess } from "@utils/gAccess";
+import { classes } from "@utils/misc";
 import definePlugin from "@utils/types";
 
 import { settings as loadingSettings, stopLoadingStyle } from "@equicordplugins/gLoading";
@@ -24,8 +25,8 @@ async function refresh() {
     SURFACES.forEach(notifySurfaceClassesChanged);
 }
 
-function ShieldButton() {
-    return useAccess() ? <div className="vc-gdev-shield" /> : null;
+function ShieldButton({ iconForeground, nameplate }: UserAreaRenderProps) {
+    return useAccess() ? <UserAreaButton icon={<div className={classes(iconForeground, "vc-gdev-shield")} />} plated={nameplate != null} /> : null;
 }
 
 export default definePlugin({
@@ -45,7 +46,7 @@ export default definePlugin({
 
     start() {
         removeProviders = SURFACES.map(id => addSurfacePropsProvider(id, () => isAllowed() ? { "data-gdev": "true" } : undefined));
-        addUserAreaButton("g-shield", ShieldButton, 80);
+        addUserAreaButton("g-shield", props => <ShieldButton {...props} />, 80);
         refresh();
     },
 

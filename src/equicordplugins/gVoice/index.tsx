@@ -354,11 +354,12 @@ function collectIds(nodes: unknown, ids: string[] = []) {
     return ids;
 }
 
-const voiceMenuPatch: GlobalContextMenuPatchCallback = (_navId, children) => {
+const voiceMenuPatch: GlobalContextMenuPatchCallback = (navId, children) => {
     const ids = collectIds(children);
-    const input = ids.some(id => /^input-(device|volume|profile|mode)/.test(id));
-    const output = ids.some(id => /^output-(device|volume)/.test(id));
-    if (input === output) return;
+    const text = [navId, ...ids].join(" ");
+    const input = /input-(device|volume|profile|mode)/.test(text) || /input/i.test(navId);
+    const output = !navId.startsWith("user") && /output/i.test(text);
+    if (!input && !output) return;
 
     const key = input ? "fakeMute" : "fakeDeafen";
     settings.store.menuReady = true;
