@@ -141,7 +141,7 @@ export async function injectWithKey(_: IpcMainInvokeEvent, key: unknown) {
             const timer = setTimeout(() => {
                 proc.kill();
                 finish({ success: false, error: output.trim() ? `Timed out. Last output: ${output.trim().split("\n").pop()}` : "Timed out. The patcher never printed anything, it may not have started." });
-            }, 15000);
+            }, 5000);
 
             const onData = (chunk: Buffer) => {
                 output += chunk.toString();
