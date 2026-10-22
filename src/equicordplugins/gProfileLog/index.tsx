@@ -11,6 +11,7 @@ import { debounce } from "@shared/debounce";
 import { EquicordDevs } from "@utils/constants";
 import { classNameFactory } from "@utils/css";
 import { isAllowed } from "@utils/gAccess";
+import ErrorBoundary from "@components/ErrorBoundary";
 import definePlugin from "@utils/types";
 import { Message, RenderModalProps, User } from "@vencord/discord-types";
 import { IconUtils, Menu, Modal, moment, openModal, Text, UserProfileStore, UserStore } from "@webpack/common";
@@ -53,32 +54,62 @@ function recordAuthor(a: Author) {
     record(a.id, seenNow);
 }
 
+function avatarUrl(id: string, hash: string) {
+    return `https://cdn.discordapp.com/avatars/${id}/${hash}.${hash.startsWith("a_") ? "gif" : "png"}?size=128`;
+}
+
 function Value({ id, field, value }: { id: string; field: Field; value: string | null; }) {
     if (!value) return <Text variant="text-sm/normal" className={cl("none")}>none</Text>;
-    if (field === "avatar") return <img className={cl("avatar")} src={IconUtils.getUserAvatarURL({ id, avatar: value } as User, true, 128)} />;
+    if (field === "avatar") return <img className={cl("avatar")} src={avatarUrl(id, value)} />;
     if (field === "banner") return <img className={cl("banner")} src={IconUtils.getUserBannerURL({ id, banner: value, canAnimate: true, size: 300 })} />;
     return <Text variant="text-sm/normal">{value}</Text>;
 }
 
-function HistoryModal({ user, modalProps }: { user: User; modalProps: RenderModalProps; }) {
+function pastValues(changes: Change[], field: Field) {
+    const seen: string[] = [];
+    for (const c of changes) {
+        for (const v of [c.old, c.now]) {
+            if (v && !seen.includes(v)) seen.push(v);
+        }
+    }
+    return seen;
+}
+
+function HistoryModalContent({ user }: { user: User; }) {
     const changes = [...(history[user.id] ?? [])].reverse();
+    const pastUsernames = pastValues(changes, "username").filter(v => v !== user.username);
+    const pastNames = pastValues(changes, "name").filter(v => v !== (user.globalName ?? user.username));
 
     return (
-        <Modal {...modalProps} size="md" title={`${user.globalName ?? user.username} history`}>
-            <div className={cl("content")}>
-                {changes.length === 0 && <Text variant="text-md/normal">No changes saved for this person yet.</Text>}
-                {changes.map(c => (
-                    <div key={c.time + c.field} className={cl("row")}>
-                        <Text variant="text-sm/normal" className={cl("meta")}>{FIELDS[c.field]} changed {moment(c.time).format("MMM D, YYYY h:mm A")}</Text>
-                        <div className={cl("values")}>
-                            <Value id={user.id} field={c.field} value={c.old} />
-                            <span>→</span>
-                            <Value id={user.id} field={c.field} value={c.now} />
-                        </div>
+        <div className={cl("content")}>
+            {(pastUsernames.length > 0 || pastNames.length > 0) && (
+                <div className={cl("known")}>
+                    {pastNames.length > 0 && <Text variant="text-sm/normal">Past display names: {pastNames.join(", ")}</Text>}
+                    {pastUsernames.length > 0 && <Text variant="text-sm/normal">Past usernames: {pastUsernames.join(", ")}</Text>}
+                </div>
+            )}
+            {changes.length === 0 && <Text variant="text-md/normal">No changes saved for this person yet.</Text>}
+            {changes.map(c => (
+                <div key={c.time + c.field} className={cl("row")}>
+                    <Text variant="text-sm/normal" className={cl("meta")}>{FIELDS[c.field]} changed {moment(c.time).format("MMM D, YYYY h:mm A")}</Text>
+                    <div className={cl("values")}>
+                        <Value id={user.id} field={c.field} value={c.old} />
+                        <span>→</span>
+                        <Value id={user.id} field={c.field} value={c.now} />
                     </div>
-                ))}
-            </div>
-        </Modal>
+                </div>
+            ))}
+        </div>
+    );
+}
+
+function HistoryModal({ user, modalProps }: { user: User; modalProps: RenderModalProps; }) {
+    return (
+        <ErrorBoundary>
+            <Modal {...modalProps} size="md" title={`${user.globalName ?? user.username} history`}>
+                <HistoryModalContent user={user} />
+            </Modal>
+        </ErrorBoundary>
     );
 }
 

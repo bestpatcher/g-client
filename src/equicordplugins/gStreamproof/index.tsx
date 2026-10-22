@@ -35,18 +35,20 @@ function UsersModal({ modalProps }: { modalProps: RenderModalProps; }) {
     }, [ids.join(",")]);
 
     return (
-        <Modal {...modalProps} size="md" title={`Users on $G (${ids.length})`}>
-            <div className="vc-gstreamproof-users-content">
-                {ids.length === 0 && <Text variant="text-md/normal">Nobody has been seen on this client yet.</Text>}
-                {list.map(user => (
-                    <div key={user.id} className="vc-gstreamproof-users-row">
-                        <img className="vc-gstreamproof-users-avatar" src={IconUtils.getUserAvatarURL(user, true, 64)} />
-                        <Text variant="text-md/normal">{user.globalName ?? user.username}</Text>
-                        <img className="vc-gstreamproof-users-logo" src={LOGO} />
-                    </div>
-                ))}
-            </div>
-        </Modal>
+        <ErrorBoundary>
+            <Modal {...modalProps} size="md" title={`Users on $G (${ids.length})`}>
+                <div className="vc-gstreamproof-users-content">
+                    {ids.length === 0 && <Text variant="text-md/normal">Nobody has been seen on this client yet.</Text>}
+                    {list.map(user => (
+                        <div key={user.id} className="vc-gstreamproof-users-row">
+                            <img className="vc-gstreamproof-users-avatar" src={IconUtils.getUserAvatarURL(user, true, 64)} />
+                            <Text variant="text-md/normal">{user.globalName ?? user.username}</Text>
+                            <img className="vc-gstreamproof-users-logo" src={LOGO} />
+                        </div>
+                    ))}
+                </div>
+            </Modal>
+        </ErrorBoundary>
     );
 }
 

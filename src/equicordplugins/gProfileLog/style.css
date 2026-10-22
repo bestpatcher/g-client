@@ -38,3 +38,9 @@
 .vc-gprofile-none {
     color: var(--text-muted);
 }
+
+.vc-gprofile-known {
+    margin-bottom: 16px;
+    padding-bottom: 12px;
+    border-bottom: 1px solid var(--background-modifier-accent);
+}
