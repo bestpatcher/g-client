@@ -361,11 +361,12 @@ export default definePlugin({
     flux: {
         async LOAD_MESSAGES_SUCCESS(payload: LoadMessagePayload & { restored?: boolean; }) {
             const { channelId, messages } = payload;
-            if (payload.restored || !messages.length) return;
+            if (payload.restored) return;
 
-            const records = await idb.getMessagesByChannelAndAfterTimestampIDB(channelId, messages[messages.length - 1].timestamp);
+            const records = await idb.getMessagesByChannelAndAfterTimestampIDB(channelId, payload.hasMoreBefore && messages.length ? messages[messages.length - 1].timestamp : "");
+            const newest = messages.length && payload.hasMoreAfter ? BigInt(messages[0].id) : null;
             const missing = records
-                .filter(r => (r.status === idb.DBMessageStatus.DELETED || r.status === idb.DBMessageStatus.GHOST_PINGED) && !messages.some(m => m.id === r.message_id))
+                .filter(r => (r.status === idb.DBMessageStatus.DELETED || r.status === idb.DBMessageStatus.GHOST_PINGED) && !messages.some(m => m.id === r.message_id) && (newest === null || BigInt(r.message_id) <= newest))
                 .map(r => r.message);
             if (!missing.length) return;
 
