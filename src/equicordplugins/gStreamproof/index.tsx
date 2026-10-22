@@ -7,6 +7,7 @@
 import { definePluginSettings } from "@api/Settings";
 import ErrorBoundary from "@components/ErrorBoundary";
 import { EquicordDevs } from "@utils/constants";
+import { isAllowed } from "@utils/gAccess";
 import definePlugin, { OptionType } from "@utils/types";
 import { ContextMenuApi, Menu, showToast } from "@webpack/common";
 
@@ -32,6 +33,7 @@ async function set(enabled: boolean) {
 
 const AccountPanelMenu = ErrorBoundary.wrap(() => {
     const { enabled } = settings.use(["enabled"]);
+    if (!isAllowed()) return null;
 
     return (
         <Menu.Menu navId="vc-gstreamproof" onClose={ContextMenuApi.closeContextMenu}>
@@ -54,7 +56,7 @@ export default definePlugin({
     settings,
 
     start() {
-        if (settings.store.enabled) Native.toggle(true);
+        if (isAllowed() && settings.store.enabled) Native.toggle(true);
     },
 
     stop() {
@@ -77,6 +79,7 @@ export default definePlugin({
     },
 
     openMenu(event: React.UIEvent) {
+        if (!isAllowed()) return;
         ContextMenuApi.openContextMenu(event, AccountPanelMenu);
     }
 });
