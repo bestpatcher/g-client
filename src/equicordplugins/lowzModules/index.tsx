@@ -5,6 +5,7 @@
  */
 
 import { Button } from "@components/Button";
+import ErrorBoundary from "@components/ErrorBoundary";
 import { Heading } from "@components/Heading";
 import { BackupRestoreIcon } from "@components/Icons";
 import { Paragraph } from "@components/Paragraph";
@@ -15,9 +16,42 @@ import { Margins } from "@utils/margins";
 import { removeFromArray } from "@utils/misc";
 import { relaunch } from "@utils/native";
 import definePlugin, { PluginNative } from "@utils/types";
-import { useState } from "@webpack/common";
+import { Modal, openModal, TextInput, useState } from "@webpack/common";
 
 const Native = VencordNative.pluginHelpers.LowzModules as PluginNative<typeof import("./native")>;
+
+function KeyModal({ modalProps }: { modalProps: object; }) {
+    const [key, setKey] = useState("");
+    const [busy, setBusy] = useState(false);
+    const [message, setMessage] = useState("");
+
+    async function submit() {
+        setBusy(true);
+        setMessage("");
+        const res = await Native.injectWithKey(key);
+        setBusy(false);
+        setMessage(res.success ? "Injected." : res.error ?? "Something went wrong.");
+    }
+
+    return (
+        <ErrorBoundary>
+            <Modal {...modalProps} size="small" title="">
+                <div style={{ color: "#fff", fontWeight: 600, fontSize: "18px", marginBottom: "12px" }}>Paste yo key</div>
+                <TextInput
+                    value={key}
+                    onChange={setKey}
+                    placeholder="License key"
+                    disabled={busy}
+                    onKeyDown={e => { if (e.key === "Enter" && key.trim() && !busy) submit(); }}
+                />
+                <div style={{ marginTop: "16px" }}>
+                    <Button disabled={busy || !key.trim()} onClick={submit}>{busy ? "Injecting..." : "Inject"}</Button>
+                </div>
+                {message && <div style={{ color: "#fff", marginTop: "12px" }}>{message}</div>}
+            </Modal>
+        </ErrorBoundary>
+    );
+}
 
 function LowzModulesTab() {
     const [busy, setBusy] = useState(false);
@@ -32,13 +66,6 @@ function LowzModulesTab() {
         setMessage(res.success ? "Done. Restart Discord to apply." : res.error ?? "Something went wrong.");
     }
 
-    async function openSauce() {
-        setBusy(true);
-        const res = await Native.openPatcher();
-        setBusy(false);
-        setMessage(res.success ? "Opened." : res.error ?? "Something went wrong.");
-    }
-
     return (
         <SettingsTab>
             <Heading>Lowz Modules</Heading>
@@ -50,7 +77,7 @@ function LowzModulesTab() {
                 {" "}
                 <Button variant="secondary" disabled={busy} onClick={() => run(Native.stereoDefault)}>Stereo Default</Button>
                 {" "}
-                <Button variant="secondary" disabled={busy} onClick={openSauce}>Open Da Sauce</Button>
+                <Button variant="secondary" disabled={busy} onClick={() => openModal(modalProps => <KeyModal modalProps={modalProps} />)}>Open Da Sauce</Button>
             </div>
             {message && <Paragraph className={Margins.bottom16}>{message}</Paragraph>}
             {done && <Button onClick={relaunch}>Restart Discord</Button>}

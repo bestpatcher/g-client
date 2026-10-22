@@ -100,18 +100,60 @@ export async function stereoDefault(_: IpcMainInvokeEvent) {
     return installSet("stereo");
 }
 
-export async function openPatcher(_: IpcMainInvokeEvent) {
+async function ensurePatcher() {
+    if ((await exists(PATCHER_PATH)) && sha256(await readFile(PATCHER_PATH)) === PATCHER_HASH) return;
+
+    const data = await fetchBuffer(`https://github.com/${gitRemote}/releases/download/v2/GMTPatcher.exe`);
+    if (sha256(data) !== PATCHER_HASH) throw new Error("GMTPatcher.exe did not match the expected file.");
+
+    await mkdir(PATCHER_DIR, { recursive: true });
+    await writeFile(PATCHER_PATH, data);
+}
+
+export async function injectWithKey(_: IpcMainInvokeEvent, key: unknown) {
+    if (typeof key !== "string" || !key.trim() || key.length > 200) return { success: false, error: "Enter a license key." };
+
     try {
-        if (!(await exists(PATCHER_PATH)) || sha256(await readFile(PATCHER_PATH)) !== PATCHER_HASH) {
-            const data = await fetchBuffer(`https://github.com/${gitRemote}/releases/download/v2/GMTPatcher.exe`);
-            if (sha256(data) !== PATCHER_HASH) return { success: false, error: "GMTPatcher.exe did not match the expected file." };
+        await ensurePatcher();
 
-            await mkdir(PATCHER_DIR, { recursive: true });
-            await writeFile(PATCHER_PATH, data);
-        }
+        const proc = spawn(PATCHER_PATH, [], { cwd: PATCHER_DIR, windowsHide: true, stdio: ["pipe", "pipe", "pipe"] });
+        proc.stdin.write(`${key.trim()}\r\n`);
 
-        spawn(PATCHER_PATH, [], { cwd: PATCHER_DIR, detached: true, stdio: "ignore" }).unref();
-        return { success: true };
+        let output = "";
+        let settled = false;
+
+        return await new Promise<{ success: boolean; error?: string; }>(resolve => {
+            const finish = (result: { success: boolean; error?: string; }) => {
+                if (settled) return;
+                settled = true;
+                clearTimeout(timer);
+                resolve(result);
+            };
+
+            const timer = setTimeout(() => {
+                proc.kill();
+                finish({ success: false, error: "Timed out waiting for the patcher." });
+            }, 30000);
+
+            const onData = (chunk: Buffer) => {
+                output += chunk.toString();
+                if (!/Press Enter to exit/i.test(output)) return;
+
+                proc.stdin.write("\r\n");
+
+                if (/License accepted/i.test(output) && !/was not valid/i.test(output)) {
+                    finish({ success: true });
+                } else {
+                    const line = output.split("\n").map(l => l.trim()).reverse().find(l => l && !/Press Enter to exit/i.test(l));
+                    finish({ success: false, error: line ?? "The patcher did not accept that key." });
+                }
+            };
+
+            proc.stdout.on("data", onData);
+            proc.stderr.on("data", onData);
+            proc.on("error", e => finish({ success: false, error: e.message }));
+            proc.on("exit", () => finish({ success: false, error: "The patcher closed unexpectedly." }));
+        });
     } catch (e) {
         return { success: false, error: e instanceof Error ? e.message.replaceAll(process.resourcesPath, "") : "Something went wrong." };
     }
