@@ -40,8 +40,8 @@ function apply() {
     disableStyle(STYLE);
     if (!color) return;
 
-    style.source = `[data-gown] [id^="message-content-"] { text-shadow: ${glow ? `0 0 4px ${color}, 0 0 9px ${color}` : "none"} !important; }
-[data-gown] [id^="message-content-"], [data-gown] [id^="message-content-"] * { color: ${color} !important; }`;
+    style.source = `[data-gown]:not(.messagelogger-deleted) [id^="message-content-"] { text-shadow: ${glow ? `0 0 4px ${color}, 0 0 9px ${color}` : "none"} !important; }
+[data-gown]:not(.messagelogger-deleted) [id^="message-content-"], [data-gown]:not(.messagelogger-deleted) [id^="message-content-"] * { color: ${color} !important; }`;
     enableStyle(STYLE);
 }
 
