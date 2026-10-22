@@ -359,6 +359,22 @@ export default definePlugin({
     },
 
     flux: {
+        async LOAD_MESSAGES_SUCCESS(payload: LoadMessagePayload & { restored?: boolean; }) {
+            const { channelId, messages } = payload;
+            if (payload.restored || !messages.length) return;
+
+            const records = await idb.getMessagesByChannelAndAfterTimestampIDB(channelId, messages[messages.length - 1].timestamp);
+            const missing = records
+                .filter(r => (r.status === idb.DBMessageStatus.DELETED || r.status === idb.DBMessageStatus.GHOST_PINGED) && !messages.some(m => m.id === r.message_id))
+                .map(r => r.message);
+            if (!missing.length) return;
+
+            FluxDispatcher.dispatch({
+                ...payload,
+                restored: true,
+                messages: [...messages, ...missing].sort((a, b) => (BigInt(b.id) > BigInt(a.id) ? 1 : -1))
+            });
+        },
         "MESSAGE_DELETE": messageDeleteHandler as any,
         "MESSAGE_DELETE_BULK": messageDeleteBulkHandler,
         "MESSAGE_UPDATE": messageUpdateHandler,
