@@ -36,7 +36,7 @@ function KeyModal({ modalProps }: { modalProps: object; }) {
     return (
         <ErrorBoundary>
             <Modal {...modalProps} size="small" title="">
-                <div style={{ color: "#fff", fontWeight: 600, fontSize: "18px", marginBottom: "12px" }}>Paste yo key</div>
+                <div style={{ color: "#fff", fontWeight: 600, fontSize: "18px", marginBottom: "12px" }}>whats yo fuckin key</div>
                 <TextInput
                     value={key}
                     onChange={setKey}
