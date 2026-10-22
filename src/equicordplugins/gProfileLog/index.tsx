@@ -11,10 +11,9 @@ import { debounce } from "@shared/debounce";
 import { EquicordDevs } from "@utils/constants";
 import { classNameFactory } from "@utils/css";
 import { isAllowed } from "@utils/gAccess";
-import { ModalCloseButton, ModalContent, ModalHeader, ModalRoot, openModal } from "@utils/modal";
 import definePlugin from "@utils/types";
-import { Message, User } from "@vencord/discord-types";
-import { IconUtils, Menu, moment, UserProfileStore, UserStore } from "@webpack/common";
+import { Message, RenderModalProps, User } from "@vencord/discord-types";
+import { IconUtils, Menu, Modal, moment, openModal, Text, UserProfileStore, UserStore } from "@webpack/common";
 
 type Field = "name" | "username" | "avatar" | "banner" | "bio";
 type Snapshot = Partial<Record<Field, string | null>>;
@@ -55,26 +54,22 @@ function recordAuthor(a: Author) {
 }
 
 function Value({ id, field, value }: { id: string; field: Field; value: string | null; }) {
-    if (!value) return <span className={cl("none")}>none</span>;
+    if (!value) return <Text variant="text-sm/normal" className={cl("none")}>none</Text>;
     if (field === "avatar") return <img className={cl("avatar")} src={IconUtils.getUserAvatarURL({ id, avatar: value } as User, true, 128)} />;
     if (field === "banner") return <img className={cl("banner")} src={IconUtils.getUserBannerURL({ id, banner: value, canAnimate: true, size: 300 })} />;
-    return <span>{value}</span>;
+    return <Text variant="text-sm/normal">{value}</Text>;
 }
 
-function HistoryModal({ user, props }: { user: User; props: object; }) {
+function HistoryModal({ user, modalProps }: { user: User; modalProps: RenderModalProps; }) {
     const changes = [...(history[user.id] ?? [])].reverse();
 
     return (
-        <ModalRoot {...props}>
-            <ModalHeader>
-                <span className={cl("title")}>{user.globalName ?? user.username} history</span>
-                <ModalCloseButton onClick={(props as { onClose(): void; }).onClose} />
-            </ModalHeader>
-            <ModalContent className={cl("content")}>
-                {changes.length === 0 && <p>No changes saved for this person yet.</p>}
+        <Modal {...modalProps} size="md" title={`${user.globalName ?? user.username} history`}>
+            <div className={cl("content")}>
+                {changes.length === 0 && <Text variant="text-md/normal">No changes saved for this person yet.</Text>}
                 {changes.map(c => (
                     <div key={c.time + c.field} className={cl("row")}>
-                        <div className={cl("meta")}>{FIELDS[c.field]} changed {moment(c.time).format("MMM D, YYYY h:mm A")}</div>
+                        <Text variant="text-sm/normal" className={cl("meta")}>{FIELDS[c.field]} changed {moment(c.time).format("MMM D, YYYY h:mm A")}</Text>
                         <div className={cl("values")}>
                             <Value id={user.id} field={c.field} value={c.old} />
                             <span>→</span>
@@ -82,8 +77,8 @@ function HistoryModal({ user, props }: { user: User; props: object; }) {
                         </div>
                     </div>
                 ))}
-            </ModalContent>
-        </ModalRoot>
+            </div>
+        </Modal>
     );
 }
 
@@ -104,7 +99,7 @@ export default definePlugin({
             if (!user || !isAllowed()) return;
             children.push(
                 <Menu.MenuGroup>
-                    <Menu.MenuItem id="vc-gprofile" label="Profile History" action={() => openModal(props => <HistoryModal user={user} props={props} />)} />
+                    <Menu.MenuItem id="vc-gprofile" label="Profile History" action={() => openModal(modalProps => <HistoryModal user={user} modalProps={modalProps} />)} />
                 </Menu.MenuGroup>
             );
         }

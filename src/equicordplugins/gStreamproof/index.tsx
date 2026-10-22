@@ -12,10 +12,9 @@ import { LOGO, settings as usersSettings } from "@equicordplugins/gUsers";
 import { EquicordDevs } from "@utils/constants";
 import { isAllowed } from "@utils/gAccess";
 import { fetchUserProfile } from "@utils/discord";
-import { ModalCloseButton, ModalContent, ModalHeader, ModalRoot, openModal } from "@utils/modal";
 import definePlugin, { OptionType } from "@utils/types";
-import { User } from "@vencord/discord-types";
-import { ContextMenuApi, IconUtils, Menu, showToast, useEffect, useState, UserStore } from "@webpack/common";
+import { RenderModalProps, User } from "@vencord/discord-types";
+import { ContextMenuApi, IconUtils, Menu, Modal, openModal, showToast, Text, useEffect, useState, UserStore } from "@webpack/common";
 
 import type * as NativeModule from "./native";
 
@@ -25,7 +24,7 @@ const settings = definePluginSettings({
     enabled: { type: OptionType.CUSTOM, default: false }
 });
 
-function UsersModal({ props }: { props: object; }) {
+function UsersModal({ modalProps }: { modalProps: RenderModalProps; }) {
     const { users } = usersSettings.use(["users"]);
     const ids = Object.keys(users);
     const [list, setList] = useState<User[]>(() => ids.map(id => UserStore.getUser(id)).filter(Boolean) as User[]);
@@ -36,22 +35,18 @@ function UsersModal({ props }: { props: object; }) {
     }, [ids.join(",")]);
 
     return (
-        <ModalRoot {...props}>
-            <ModalHeader>
-                <span className="vc-gstreamproof-users-title">Users on $G</span>
-                <ModalCloseButton onClick={(props as { onClose(): void; }).onClose} />
-            </ModalHeader>
-            <ModalContent className="vc-gstreamproof-users-content">
-                {ids.length === 0 && <p>Nobody has been seen on this client yet.</p>}
+        <Modal {...modalProps} size="md" title={`Users on $G (${ids.length})`}>
+            <div className="vc-gstreamproof-users-content">
+                {ids.length === 0 && <Text variant="text-md/normal">Nobody has been seen on this client yet.</Text>}
                 {list.map(user => (
                     <div key={user.id} className="vc-gstreamproof-users-row">
                         <img className="vc-gstreamproof-users-avatar" src={IconUtils.getUserAvatarURL(user, true, 64)} />
-                        <span>{user.globalName ?? user.username}</span>
+                        <Text variant="text-md/normal">{user.globalName ?? user.username}</Text>
                         <img className="vc-gstreamproof-users-logo" src={LOGO} />
                     </div>
                 ))}
-            </ModalContent>
-        </ModalRoot>
+            </div>
+        </Modal>
     );
 }
 
@@ -80,7 +75,7 @@ const AccountPanelMenu = ErrorBoundary.wrap(() => {
             <Menu.MenuItem
                 id="vc-gstreamproof-users"
                 label="Users"
-                action={() => openModal(props => <UsersModal props={props} />)}
+                action={() => openModal(modalProps => <UsersModal modalProps={modalProps} />)}
             />
         </Menu.Menu>
     );
