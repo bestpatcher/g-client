@@ -10,6 +10,7 @@ import { addSurfacePropsProvider, notifySurfaceClassesChanged, type SurfaceId } 
 import { addUserAreaButton, removeUserAreaButton, UserAreaButton, UserAreaRenderProps } from "@api/UserArea";
 import { EquicordDevs } from "@utils/constants";
 import { checkAccess, isAllowed, useAccess } from "@utils/gAccess";
+import GStreamproof from "@equicordplugins/gStreamproof";
 import { classes } from "@utils/misc";
 import definePlugin from "@utils/types";
 
@@ -26,7 +27,7 @@ async function refresh() {
 }
 
 function ShieldButton({ iconForeground, nameplate }: UserAreaRenderProps) {
-    return useAccess() ? <UserAreaButton icon={<div className={classes(iconForeground, "vc-gdev-shield")} />} plated={nameplate != null} /> : null;
+    return useAccess() ? <UserAreaButton icon={<div className={classes(iconForeground, "vc-gdev-shield")} />} plated={nameplate != null} onClick={e => GStreamproof.openMenu(e)} /> : null;
 }
 
 export default definePlugin({

@@ -21,8 +21,6 @@ import type * as NativeModule from "./native";
 
 const Native = VencordNative.pluginHelpers.GStreamproof as PluginNative<typeof NativeModule>;
 
-let accountPanelRef: React.RefObject<HTMLDivElement> | null = null;
-
 const settings = definePluginSettings({
     enabled: { type: OptionType.CUSTOM, default: false }
 });
@@ -90,7 +88,7 @@ const AccountPanelMenu = ErrorBoundary.wrap(() => {
 
 export default definePlugin({
     name: "GStreamproof",
-    description: "Right click your account panel for streamproof and a list of who is using this client, for the dev accounts.",
+    description: "Click the shield for streamproof and a list of who is using this client, for the dev accounts.",
     authors: [EquicordDevs.nobody],
     required: true,
     hidden: true,
@@ -104,22 +102,7 @@ export default definePlugin({
         Native.toggle(false);
     },
 
-    patches: [
-        {
-            find: "handleOpenSettingsContextMenu=",
-            replacement: {
-                match: /ref:(\i),style:\i(?=.{0,250}#{intl::USER_PROFILE_ACCOUNT_POPOUT_BUTTON_A11Y_LABEL})/,
-                replace: "$&,onContextMenu:($self.grabRef($1),$self.openMenu)"
-            }
-        }
-    ],
-
-    grabRef(ref: React.RefObject<HTMLDivElement>) {
-        accountPanelRef = ref;
-        return ref;
-    },
-
-    openMenu(event: React.UIEvent) {
+    openMenu(event: React.MouseEvent) {
         if (!isAllowed()) return;
         ContextMenuApi.openContextMenu(event, AccountPanelMenu);
     }
