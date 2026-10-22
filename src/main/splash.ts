@@ -14,12 +14,11 @@ const logger = new Logger("GSplash");
 
 function buildScript(dev: boolean) {
     const text = dev ? "Developer Mode.." : "Private $G Client..";
-    const filter = dev ? "drop-shadow(0 0 6px #ff9500) drop-shadow(0 0 14px rgba(255, 149, 0, 0.75))" : "none";
 
     return `(() => {
         const text = ${JSON.stringify(text)};
         const style = document.createElement("style");
-        style.textContent = "@keyframes gspin{from{transform:rotateY(0)}to{transform:rotateY(360deg)}}#g-splash-logo{position:fixed;z-index:1;width:96px;height:96px;left:calc(50% - 48px);object-fit:contain;animation:gspin 2.4s linear infinite;filter:" + ${JSON.stringify(filter)} + "}";
+        style.textContent = "@keyframes gspin{from{transform:rotateY(0)}to{transform:rotateY(360deg)}}#g-splash-logo{position:fixed;z-index:1;width:96px;height:96px;left:calc(50% - 48px);object-fit:contain;animation:gspin 2.4s linear infinite}";
         document.head.appendChild(style);
 
         const logo = document.createElement("img");
