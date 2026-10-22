@@ -19,10 +19,12 @@
     text-shadow: 0 0 4px #ff1a1a, 0 0 8px rgba(255, 26, 26, 0.6);
 }
 
-[data-gheader] :is(img, canvas, [role="img"]),
-[data-gheader] svg:not(button *, [role="button"] *),
-[data-gheader] [style*="background-image"],
-[data-gheader] *:has(> :not(:has(*)):not(:empty)) > *:not(:not(:has(*)):not(:empty)) {
+[data-gheader][data-gdev] :is(img, canvas, [role="img"]),
+[data-gheader][data-gdev] [style*="background-image"],
+[data-gheader][data-gdev] *:has(> :not(:has(*)):not(:empty)) > *:not(:not(:has(*)):not(:empty)),
+[data-gheader][data-gdev] *:has(+ :not(:has(*)):not(:empty)),
+[data-gheader][data-gdev] *:has(+ *:has(> :not(:has(*)):not(:empty))),
+[data-gheader][data-gdev] svg:has(path[d^="M19.73 4.87"]) {
     display: none;
 }
 

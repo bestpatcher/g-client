@@ -52,8 +52,7 @@ export default definePlugin({
                 <Menu.MenuGroup>
                     <Menu.MenuItem
                         id="vc-ignore-dm"
-                        label={ignored ? "Unignore" : "Ignore"}
-                        color={ignored ? undefined : "danger"}
+                        label={<span className="vc-ignore-label">{ignored ? "Unignore" : "Ignore"}</span>}
                         action={() => toggle(channelId, ignored)}
                     />
                 </Menu.MenuGroup>
