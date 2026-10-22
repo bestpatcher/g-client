@@ -27,15 +27,15 @@ function patchLatest() {
 }
 
 if (process.platform === "win32" || process.platform === "linux") {
-    EventEmitter.prototype.emit = new Proxy(EventEmitter.prototype.emit, {
-        apply(target, thisArg, argArray) {
-            if (argArray[0] === "host-updated") {
-                patchLatest();
-            }
-
-            return Reflect.apply(target, thisArg, argArray);
-        },
-    });
+    // A plain wrapper, not a Proxy: this replaces every EventEmitter's emit
+    // in the whole process, so a Proxy's per-call trap overhead is paid on
+    // every single emit anywhere in the app for its entire lifetime, not
+    // just on the rare "host-updated" event this is actually watching for.
+    const originalEmit = EventEmitter.prototype.emit;
+    EventEmitter.prototype.emit = function (event: string | symbol, ...args: unknown[]) {
+        if (event === "host-updated") patchLatest();
+        return originalEmit.call(this, event, ...args);
+    };
 
     // Try to patch latest on before-quit
     // Discord's Win32 updater will call app.quit() on restart and open new version on will-quit
