@@ -18,7 +18,7 @@ function buildScript(dev: boolean) {
     return `(() => {
         const text = ${JSON.stringify(text)};
         const style = document.createElement("style");
-        style.textContent = "@keyframes gspin{from{transform:rotateY(0)}to{transform:rotateY(360deg)}}#g-splash-logo{position:fixed;z-index:1;width:96px;height:96px;left:calc(50% - 48px);object-fit:contain;animation:gspin 2.4s linear infinite}";
+        style.textContent = "@keyframes gspin{from{transform:rotateY(0)}to{transform:rotateY(360deg)}}#g-splash-logo{position:fixed;z-index:1;width:88px;height:88px;left:calc(50% - 44px);object-fit:contain;animation:gspin 2.4s linear infinite}";
         document.head.appendChild(style);
 
         const logo = document.createElement("img");
@@ -35,7 +35,7 @@ function buildScript(dev: boolean) {
             if (!leaf) return;
 
             if (leaf.textContent !== text) leaf.textContent = text;
-            logo.style.top = (leaf.getBoundingClientRect().top - 112) + "px";
+            logo.style.top = (leaf.getBoundingClientRect().top - 128) + "px";
         };
 
         window.addEventListener("resize", apply);
