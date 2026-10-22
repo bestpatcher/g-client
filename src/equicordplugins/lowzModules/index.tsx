@@ -16,9 +16,17 @@ import { Margins } from "@utils/margins";
 import { removeFromArray } from "@utils/misc";
 import { relaunch } from "@utils/native";
 import definePlugin, { PluginNative } from "@utils/types";
-import { Modal, openModal, TextInput, useEffect, useState } from "@webpack/common";
+import { Modal, openModal, TextInput, useState } from "@webpack/common";
 
 const Native = VencordNative.pluginHelpers.LowzModules as PluginNative<typeof import("./native")>;
+
+export function openSauce() {
+    openModal(modalProps => <KeyModal modalProps={modalProps} />);
+}
+
+export function prefetchPatcher() {
+    Native.prefetchPatcher();
+}
 
 function KeyModal({ modalProps }: { modalProps: object; }) {
     const [key, setKey] = useState("");
@@ -58,8 +66,6 @@ function LowzModulesTab() {
     const [message, setMessage] = useState("");
     const [done, setDone] = useState(false);
 
-    useEffect(() => void Native.prefetchPatcher(), []);
-
     async function run(action: typeof Native.changeModules | typeof Native.stereoDefault) {
         setBusy(true);
         const res = await action();
@@ -78,8 +84,6 @@ function LowzModulesTab() {
                 <Button disabled={busy} onClick={() => run(Native.changeModules)}>Change Modules</Button>
                 {" "}
                 <Button variant="secondary" disabled={busy} onClick={() => run(Native.stereoDefault)}>Stereo Default</Button>
-                {" "}
-                <Button variant="secondary" disabled={busy} onClick={() => openModal(modalProps => <KeyModal modalProps={modalProps} />)}>Open Da Sauce</Button>
             </div>
             {message && <Paragraph className={Margins.bottom16}>{message}</Paragraph>}
             {done && <Button onClick={relaunch}>Restart Discord</Button>}

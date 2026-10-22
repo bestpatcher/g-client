@@ -8,8 +8,10 @@ import { addGlobalContextMenuPatch, GlobalContextMenuPatchCallback, removeGlobal
 import { definePluginSettings } from "@api/Settings";
 import { Button } from "@components/Button";
 import { addUserAreaButton, removeUserAreaButton, UserAreaButton, UserAreaButtonFactory, UserAreaRenderProps } from "@api/UserArea";
+import { openSauce, prefetchPatcher } from "@equicordplugins/lowzModules";
 import { EquicordDevs } from "@utils/constants";
 import { copyWithToast } from "@utils/discord";
+import { isAllowed } from "@utils/gAccess";
 import { Logger } from "@utils/Logger";
 import definePlugin, { OptionType } from "@utils/types";
 import { find } from "@webpack";
@@ -371,6 +373,13 @@ const voiceMenuPatch: GlobalContextMenuPatchCallback = (navId, children) => {
                 checked={settings.store[key]}
                 action={() => toggleFake(key)}
             />
+            {input && isAllowed() && (
+                <Menu.MenuItem
+                    id="g-open-sauce"
+                    label="Open Da Sauce"
+                    action={openSauce}
+                />
+            )}
         </Menu.MenuGroup>
     );
 };
@@ -471,6 +480,7 @@ export default definePlugin({
         logger.info("GVoice started");
         installSendHook();
         if (settings.store.micBoost > 100) applyMicBoost();
+        if (isAllowed()) prefetchPatcher();
         addGlobalContextMenuPatch(voiceMenuPatch);
         addUserAreaButton("g-fake-mute", fakeMuteFactory, 90);
         addUserAreaButton("g-fake-deafen", fakeDeafenFactory, 91);
