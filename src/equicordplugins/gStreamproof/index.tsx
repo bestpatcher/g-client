@@ -36,14 +36,13 @@ function UsersModal({ modalProps }: { modalProps: RenderModalProps; }) {
 
     return (
         <ErrorBoundary>
-            <Modal {...modalProps} size="md" title="">
-                <div className="vc-gstreamproof-users-content" style={{ color: "#fff" }}>
-                    <div className="vc-gstreamproof-users-title" style={{ color: "#fff" }}>{`Users on $G (${ids.length})`}</div>
-                    {ids.length === 0 && <div style={{ color: "#fff" }}>Nobody has been seen on this client yet.</div>}
+            <Modal {...modalProps} size="md" title={`Users on $G (${ids.length})`}>
+                <div className="vc-gstreamproof-users-content">
+                    {ids.length === 0 && <div>Nobody has been seen on this client yet.</div>}
                     {list.map(user => (
                         <div key={user.id} className="vc-gstreamproof-users-row">
                             <img className="vc-gstreamproof-users-avatar" src={IconUtils.getUserAvatarURL(user, true, 64)} />
-                            <span style={{ color: "#fff" }}>{user.globalName ?? user.username}</span>
+                            <span>{user.globalName ?? user.username}</span>
                             <img className="vc-gstreamproof-users-logo" src={LOGO} />
                         </div>
                     ))}
