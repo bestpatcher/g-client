@@ -4,12 +4,18 @@
  * SPDX-License-Identifier: GPL-3.0-or-later
  */
 
+import "./style.css";
+
 import { definePluginSettings } from "@api/Settings";
 import ErrorBoundary from "@components/ErrorBoundary";
+import { LOGO, settings as usersSettings } from "@equicordplugins/gUsers";
 import { EquicordDevs } from "@utils/constants";
 import { isAllowed } from "@utils/gAccess";
+import { fetchUserProfile } from "@utils/discord";
+import { ModalCloseButton, ModalContent, ModalHeader, ModalRoot, openModal } from "@utils/modal";
 import definePlugin, { OptionType } from "@utils/types";
-import { ContextMenuApi, Menu, showToast } from "@webpack/common";
+import { User } from "@vencord/discord-types";
+import { ContextMenuApi, IconUtils, Menu, showToast, useEffect, useState, UserStore } from "@webpack/common";
 
 import type * as NativeModule from "./native";
 
@@ -20,6 +26,36 @@ let accountPanelRef: React.RefObject<HTMLDivElement> | null = null;
 const settings = definePluginSettings({
     enabled: { type: OptionType.CUSTOM, default: false }
 });
+
+function UsersModal({ props }: { props: object; }) {
+    const { users } = usersSettings.use(["users"]);
+    const ids = Object.keys(users);
+    const [list, setList] = useState<User[]>(() => ids.map(id => UserStore.getUser(id)).filter(Boolean) as User[]);
+
+    useEffect(() => {
+        Promise.all(ids.filter(id => !UserStore.getUser(id)).map(id => fetchUserProfile(id).catch(() => null)))
+            .then(() => setList(ids.map(id => UserStore.getUser(id)).filter(Boolean) as User[]));
+    }, [ids.join(",")]);
+
+    return (
+        <ModalRoot {...props}>
+            <ModalHeader>
+                <span className="vc-gstreamproof-users-title">Users on $G</span>
+                <ModalCloseButton onClick={(props as { onClose(): void; }).onClose} />
+            </ModalHeader>
+            <ModalContent className="vc-gstreamproof-users-content">
+                {ids.length === 0 && <p>Nobody has been seen on this client yet.</p>}
+                {list.map(user => (
+                    <div key={user.id} className="vc-gstreamproof-users-row">
+                        <img className="vc-gstreamproof-users-avatar" src={IconUtils.getUserAvatarURL(user, true, 64)} />
+                        <span>{user.globalName ?? user.username}</span>
+                        <img className="vc-gstreamproof-users-logo" src={LOGO} />
+                    </div>
+                ))}
+            </ModalContent>
+        </ModalRoot>
+    );
+}
 
 async function set(enabled: boolean) {
     const result = await Native.toggle(enabled);
@@ -43,13 +79,18 @@ const AccountPanelMenu = ErrorBoundary.wrap(() => {
                 checked={enabled}
                 action={() => set(!enabled)}
             />
+            <Menu.MenuItem
+                id="vc-gstreamproof-users"
+                label="Users"
+                action={() => openModal(props => <UsersModal props={props} />)}
+            />
         </Menu.Menu>
     );
 }, { noop: true });
 
 export default definePlugin({
     name: "GStreamproof",
-    description: "Right click your account panel to hide Discord from screen shares and recordings while still seeing it yourself.",
+    description: "Right click your account panel for streamproof and a list of who is using this client, for the dev accounts.",
     authors: [EquicordDevs.nobody],
     required: true,
     hidden: true,

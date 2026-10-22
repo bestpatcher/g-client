@@ -10,40 +10,42 @@ import { definePluginSettings } from "@api/Settings";
 import ErrorBoundary from "@components/ErrorBoundary";
 import { EquicordDevs } from "@utils/constants";
 import { classNameFactory } from "@utils/css";
+import { isAllowed } from "@utils/gAccess";
 import definePlugin, { OptionType } from "@utils/types";
 import { Message } from "@vencord/discord-types";
 import { UserStore } from "@webpack/common";
 
 const MARK = "⁣‌‍⁣";
-const LOGO = "https://equicord.org/assets/favicon.png";
+export const LOGO = "https://equicord.org/assets/favicon.png";
 const KEYS: "users"[] = ["users"];
 const cl = classNameFactory("vc-gusers-");
 
-const settings = definePluginSettings({
+export const settings = definePluginSettings({
     users: { type: OptionType.CUSTOM, default: {} as Record<string, true> }
 });
 
 function seen({ author, content }: Message) {
-    if (author && content?.includes(MARK) && !settings.store.users[author.id]) {
+    if (isAllowed() && author && content?.includes(MARK) && !settings.store.users[author.id]) {
         settings.store.users = { ...settings.store.users, [author.id]: true };
     }
 }
 
 const Logo = ErrorBoundary.wrap(({ id }: { id: string; }) => {
     const { users } = settings.use(KEYS);
+    if (!isAllowed()) return null;
     return users[id] || id === UserStore.getCurrentUser().id ? <img className={cl("logo")} src={LOGO} /> : null;
 }, { noop: true });
 
 export default definePlugin({
     name: "GUsers",
-    description: "Shows the logo next to everyone using this client.",
+    description: "Shows the logo next to everyone using this client, for the dev accounts.",
     authors: [EquicordDevs.nobody],
     required: true,
     hidden: true,
     settings,
 
     onBeforeMessageSend(_, message) {
-        if (message.content.trim() && !message.content.endsWith("`")) message.content += MARK;
+        if (isAllowed() && message.content.trim() && !message.content.endsWith("`")) message.content += MARK;
     },
 
     renderMessageDecoration: ({ message }) => <Logo id={message.author.id} />,

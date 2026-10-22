@@ -1,0 +1,28 @@
+.vc-gstreamproof-users-title {
+    flex: 1;
+    font-size: 18px;
+    font-weight: 600;
+}
+
+.vc-gstreamproof-users-content {
+    padding-bottom: 16px;
+}
+
+.vc-gstreamproof-users-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 6px 0;
+}
+
+.vc-gstreamproof-users-avatar {
+    width: 28px;
+    height: 28px;
+    border-radius: 50%;
+}
+
+.vc-gstreamproof-users-logo {
+    width: 16px;
+    height: 16px;
+    margin-left: auto;
+}
