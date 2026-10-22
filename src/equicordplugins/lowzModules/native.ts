@@ -116,8 +116,9 @@ export function prefetchPatcher() {
     cached ??= ensurePatcher().catch(() => { cached = null; });
 }
 
-export async function injectWithKey(_: IpcMainInvokeEvent, key: unknown) {
+export async function injectWithKey(_: IpcMainInvokeEvent, key: unknown, mode: unknown = "on") {
     if (typeof key !== "string" || !key.trim() || key.length > 200) return { success: false, error: "Enter a license key." };
+    if (mode !== "on" && mode !== "off") return { success: false, error: "Invalid mode." };
 
     try {
         prefetchPatcher();
@@ -148,7 +149,7 @@ export async function injectWithKey(_: IpcMainInvokeEvent, key: unknown) {
 
                 if (!choseMode && /Choose 1 or 2/i.test(output)) {
                     choseMode = true;
-                    proc.stdin.write("1\r\n");
+                    proc.stdin.write(mode === "off" ? "2\r\n" : "1\r\n");
                 }
 
                 if (!/Press Enter to exit/i.test(output)) return;

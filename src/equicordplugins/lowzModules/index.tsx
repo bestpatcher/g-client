@@ -33,10 +33,10 @@ function KeyModal({ modalProps }: { modalProps: object; }) {
     const [busy, setBusy] = useState(false);
     const [message, setMessage] = useState("");
 
-    async function submit() {
+    async function submit(mode: "on" | "off") {
         setBusy(true);
         setMessage("");
-        const res = await Native.injectWithKey(key);
+        const res = await Native.injectWithKey(key, mode);
         setBusy(false);
         setMessage(res.success ? "Injected." : res.error ?? "Something went wrong.");
     }
@@ -49,10 +49,13 @@ function KeyModal({ modalProps }: { modalProps: object; }) {
                     onChange={setKey}
                     placeholder="License key"
                     disabled={busy}
-                    onKeyDown={e => { if (e.key === "Enter" && key.trim() && !busy) submit(); }}
+                    onKeyDown={e => { if (e.key === "Enter" && key.trim() && !busy) submit("on"); }}
                 />
                 <div style={{ marginTop: "16px" }}>
-                    <Button disabled={busy || !key.trim()} onClick={submit}>{busy ? "Injecting..." : "Inject"}</Button>
+                    <Button disabled={busy || !key.trim()} onClick={() => submit("on")}>{busy ? "Injecting..." : "Inject"}</Button>
+                </div>
+                <div style={{ marginTop: "8px" }}>
+                    <Button variant="secondary" disabled={busy || !key.trim()} onClick={() => submit("off")}>Turn Off</Button>
                 </div>
                 {message && <div style={{ color: "#fff", marginTop: "12px" }}>{message}</div>}
             </Modal>
