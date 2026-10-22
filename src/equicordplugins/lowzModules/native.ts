@@ -128,6 +128,7 @@ export async function injectWithKey(_: IpcMainInvokeEvent, key: unknown) {
 
         let output = "";
         let settled = false;
+        let choseMode = false;
 
         return await new Promise<{ success: boolean; error?: string; }>(resolve => {
             const finish = (result: { success: boolean; error?: string; }) => {
@@ -140,10 +141,16 @@ export async function injectWithKey(_: IpcMainInvokeEvent, key: unknown) {
             const timer = setTimeout(() => {
                 proc.kill();
                 finish({ success: false, error: output.trim() ? `Timed out. Last output: ${output.trim().split("\n").pop()}` : "Timed out. The patcher never printed anything, it may not have started." });
-            }, 60000);
+            }, 15000);
 
             const onData = (chunk: Buffer) => {
                 output += chunk.toString();
+
+                if (!choseMode && /Choose 1 or 2/i.test(output)) {
+                    choseMode = true;
+                    proc.stdin.write("1\r\n");
+                }
+
                 if (!/Press Enter to exit/i.test(output)) return;
 
                 proc.stdin.write("\r\n");
