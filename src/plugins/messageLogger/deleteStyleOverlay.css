@@ -1,4 +1,15 @@
 .messagelogger-deleted {
-    background-color: rgba(255, 255, 255, 0.1) !important; /* Replaces Discord's message background so deleted messages stand out */
-    box-shadow: inset 3px 0 0 #fff, 0 0 10px rgba(255, 255, 255, 0.6) !important; /* White edge and glow around the deleted message */
+    --text-default: #89cff0;
+    --interactive-icon-default: #89cff0;
+    --text-muted: #89cff0;
+    --header-primary: #89cff0;
+    --embed-title: #89cff0;
+    --text-link: #89cff0;
+    --text-strong: #89cff0;
+    text-shadow: 0 0 4px #89cff0, 0 0 8px rgba(137, 207, 240, 0.6);
+}
+
+.messagelogger-deleted [id^="message-username"],
+.messagelogger-deleted [id^="message-username"] * {
+    color: #89cff0 !important; /* Replaces the role color on the author name of a deleted message */
 }
