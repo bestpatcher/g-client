@@ -35,10 +35,10 @@ function buildScript(dev: boolean) {
             if (!leaf) return;
 
             if (leaf.textContent !== text) leaf.textContent = text;
-            logo.style.top = (leaf.getBoundingClientRect().top - 128) + "px";
+            logo.style.top = Math.max(8, leaf.getBoundingClientRect().top - 128) + "px";
         };
 
-        window.addEventListener("resize", apply);
+        setInterval(apply, 150);
         new MutationObserver(apply).observe(document.documentElement, { childList: true, subtree: true, characterData: true });
         apply();
     })()`;
