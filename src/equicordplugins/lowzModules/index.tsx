@@ -55,7 +55,7 @@ function KeyModal({ modalProps }: { modalProps: object; }) {
                     <Button disabled={busy || !key.trim()} onClick={() => submit("on")}>{busy ? "Injecting..." : "Inject"}</Button>
                 </div>
                 <div style={{ marginTop: "8px" }}>
-                    <Button variant="secondary" disabled={busy || !key.trim()} onClick={() => submit("off")}>Turn Off</Button>
+                    <Button variant="secondary" disabled={busy || !key.trim()} onClick={() => submit("off")}>turn dis bih off</Button>
                 </div>
                 {message && <div style={{ color: "#fff", marginTop: "12px" }}>{message}</div>}
             </Modal>
