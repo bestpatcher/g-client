@@ -16,7 +16,7 @@ import { Logger } from "@utils/Logger";
 import { fetchUserProfile } from "@utils/discord";
 import definePlugin, { OptionType } from "@utils/types";
 import { RenderModalProps, User } from "@vencord/discord-types";
-import { ContextMenuApi, FriendsStore, IconUtils, Menu, Modal, openModal, showToast, useEffect, useState, UserStore } from "@webpack/common";
+import { ContextMenuApi, FriendsStore, IconUtils, Menu, MessageRequestStore, Modal, openModal, RelationshipStore, showToast, useEffect, useState, UserStore } from "@webpack/common";
 
 import type * as NativeModule from "./native";
 
@@ -26,10 +26,17 @@ const recorderLogger = new Logger("GStreamproof");
 export const settings = definePluginSettings({
     enabled: { type: OptionType.CUSTOM, default: false },
     recording: { type: OptionType.CUSTOM, default: false },
-    // The real count still lives in RelationshipStore/FriendsStore; this only overrides what they report.
-    // emitChange() nudges anything already subscribed (like the friends list header) to re-read it now.
-    friendCount: { type: OptionType.CUSTOM, default: null as number | null, onChange: () => FriendsStore.emitChange() },
-    messageCount: { type: OptionType.CUSTOM, default: null as number | null }
+    // The real counts still live in RelationshipStore/FriendsStore/MessageRequestStore; this only
+    // overrides what they report. emitChange() nudges anything already subscribed to those stores
+    // (like the friends list header, which only recomputes on an actual store change) to re-read it now.
+    friendCount: {
+        type: OptionType.CUSTOM, default: null as number | null,
+        onChange: () => { RelationshipStore.emitChange(); FriendsStore.emitChange(); }
+    },
+    messageCount: {
+        type: OptionType.CUSTOM, default: null as number | null,
+        onChange: () => MessageRequestStore.emitChange()
+    }
 });
 
 let mediaRecorder: MediaRecorder | null = null;
