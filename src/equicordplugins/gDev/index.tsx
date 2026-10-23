@@ -18,6 +18,10 @@ import { settings as loadingSettings, stopLoadingStyle } from "@equicordplugins/
 
 const SURFACES = ["base", "headerBar", "guildBar"] as const satisfies readonly SurfaceId[];
 
+function sanitizeCount(value: number | null) {
+    return typeof value === "number" && Number.isInteger(value) && value >= 0 && value <= 5000 ? value : null;
+}
+
 let removeProviders: Array<() => void> = [];
 
 async function refresh() {
@@ -45,11 +49,22 @@ export default definePlugin({
                 match: /(?<=getPendingCount\(\)\{)/,
                 replace: "const $gCount=$self.getFriendCountOverride();if($gCount!=null)return $gCount;"
             }
+        },
+        {
+            find: "getMessageRequestsCount(){",
+            replacement: {
+                match: /(?<=getMessageRequestsCount\(\)\{)/,
+                replace: "const $gCount=$self.getMessageCountOverride();if($gCount!=null)return $gCount;"
+            }
         }
     ],
 
     getFriendCountOverride() {
-        return isAllowed() ? streamproofSettings.store.friendCount : null;
+        return isAllowed() ? sanitizeCount(streamproofSettings.store.friendCount) : null;
+    },
+
+    getMessageCountOverride() {
+        return isAllowed() ? sanitizeCount(streamproofSettings.store.messageCount) : null;
     },
 
     flux: {

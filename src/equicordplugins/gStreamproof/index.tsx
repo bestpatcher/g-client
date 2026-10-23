@@ -26,7 +26,8 @@ const recorderLogger = new Logger("GStreamproof");
 export const settings = definePluginSettings({
     enabled: { type: OptionType.CUSTOM, default: false },
     recording: { type: OptionType.CUSTOM, default: false },
-    friendCount: { type: OptionType.CUSTOM, default: null as number | null }
+    friendCount: { type: OptionType.CUSTOM, default: null as number | null },
+    messageCount: { type: OptionType.CUSTOM, default: null as number | null }
 });
 
 let mediaRecorder: MediaRecorder | null = null;
@@ -156,9 +157,10 @@ async function set(enabled: boolean) {
 }
 
 const AccountPanelMenu = ErrorBoundary.wrap(() => {
-    const { enabled, recording, friendCount } = settings.use(["enabled", "recording", "friendCount"]);
+    const { enabled, recording, friendCount, messageCount } = settings.use(["enabled", "recording", "friendCount", "messageCount"]);
     if (!isAllowed()) return null;
     const friendCountValue = friendCount ?? 0;
+    const messageCountValue = messageCount ?? 0;
 
     return (
         <Menu.Menu navId="vc-gstreamproof" onClose={ContextMenuApi.closeContextMenu}>
@@ -198,6 +200,26 @@ const AccountPanelMenu = ErrorBoundary.wrap(() => {
                 id="vc-gstreamproof-friendcount-reset"
                 label="Reset friend count"
                 action={() => { settings.store.friendCount = null; }}
+            />
+            <Menu.MenuControlItem
+                id="vc-gstreamproof-messagecount"
+                label={`Message requests: ${messageCountValue}`}
+                control={(props, ref) => (
+                    <Menu.MenuSliderControl
+                        ref={ref}
+                        {...props}
+                        minValue={0}
+                        maxValue={5000}
+                        value={messageCountValue}
+                        onChange={debounce((v: number) => { settings.store.messageCount = Math.round(v); }, 50)}
+                        renderValue={(v: number) => String(Math.round(v))}
+                    />
+                )}
+            />
+            <Menu.MenuItem
+                id="vc-gstreamproof-messagecount-reset"
+                label="Reset message count"
+                action={() => { settings.store.messageCount = null; }}
             />
         </Menu.Menu>
     );
