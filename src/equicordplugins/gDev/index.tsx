@@ -162,10 +162,9 @@ function RecordButton() {
 
     return (
         <UserAreaButton
-            icon={<ZzzIcon color={recording ? "var(--status-danger)" : "currentColor"} />}
+            icon={<ZzzIcon />}
             tooltipText={recording ? "Stop call recording" : "Record call audio"}
             onClick={toggle}
-            redGlow={recording}
         />
     );
 }
