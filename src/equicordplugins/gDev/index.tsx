@@ -163,7 +163,7 @@ function RecordButton() {
     return (
         <UserAreaButton
             icon={<ZzzIcon />}
-            tooltipText={recording ? "Stop call recording" : "Record call audio"}
+            tooltipText={recording ? "SsS" : "ZzZ"}
             onClick={toggle}
         />
     );
