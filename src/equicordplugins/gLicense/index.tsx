@@ -8,29 +8,22 @@ import { plugins, stopPlugin } from "@api/PluginManager";
 import { EquicordDevs } from "@utils/constants";
 import { checkAccess, isLicensed } from "@utils/gAccess";
 import definePlugin from "@utils/types";
+import { PluginMeta } from "~plugins";
 
-// Everything that makes this client the private $G build rather than regular Discord.
-// Anyone not on the allow list (see @utils/gAccess) gets all of this switched off.
-const GATED_PLUGINS = [
-    "GVoice",
-    "GHeader",
-    "GStreamproof",
-    "GLogo",
-    "GTheme",
-    "GProfileLog",
-    "GUsers",
-    "GDev",
-    "GMessageColor",
-    "GLoading",
-    "LowzModules"
-];
+// Only the framework API plugins (contextMenu, badges, messageEvents, etc.) are left
+// running for anyone not on the allow list. Everything else, $G or regular Equicord,
+// gets switched off so an unlicensed user just sees stock Discord.
+function isFrameworkApi(name: string) {
+    return PluginMeta[name]?.folderName.includes("/_api/") ?? false;
+}
 
 function lockDown() {
     if (isLicensed()) return;
 
-    for (const name of GATED_PLUGINS) {
+    for (const name in plugins) {
+        if (name === "GLicense" || isFrameworkApi(name)) continue;
         const plugin = plugins[name];
-        if (plugin?.started) stopPlugin(plugin);
+        if (plugin.started) stopPlugin(plugin);
     }
 }
 
