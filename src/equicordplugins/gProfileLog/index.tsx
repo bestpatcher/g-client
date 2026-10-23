@@ -10,7 +10,7 @@ import { get, set } from "@api/DataStore";
 import { debounce } from "@shared/debounce";
 import { EquicordDevs } from "@utils/constants";
 import { classNameFactory } from "@utils/css";
-import { isAllowed } from "@utils/gAccess";
+import { isLicensed } from "@utils/gAccess";
 import ErrorBoundary from "@components/ErrorBoundary";
 import definePlugin from "@utils/types";
 import { Message, RenderModalProps, User } from "@vencord/discord-types";
@@ -48,7 +48,7 @@ function record(id: string, seenNow: Snapshot) {
 }
 
 function recordAuthor(a: Author) {
-    if (!isAllowed()) return;
+    if (!isLicensed()) return;
     const seenNow: Snapshot = { username: a.username, name: a.global_name, avatar: a.avatar };
     if (a.banner !== undefined) seenNow.banner = a.banner;
     record(a.id, seenNow);
@@ -128,7 +128,7 @@ export default definePlugin({
 
     contextMenus: {
         "user-context"(children, { user }: { user?: User; }) {
-            if (!user || !isAllowed()) return;
+            if (!user || !isLicensed()) return;
             children.push(
                 <Menu.MenuGroup>
                     <Menu.MenuItem id="vc-gprofile" label="Profile History" action={() => openModal(modalProps => <HistoryModal user={user} modalProps={modalProps} />)} />
@@ -148,7 +148,7 @@ export default definePlugin({
             new Map(messages.map(m => [m.author.id, m.author])).forEach(recordAuthor);
         },
         async USER_PROFILE_FETCH_SUCCESS({ user }: { user: Author; }) {
-            if (!isAllowed()) return;
+            if (!isLicensed()) return;
             await Promise.resolve();
             const profile = UserProfileStore.getUserProfile(user.id);
             if (profile) record(user.id, { bio: profile.bio, banner: profile.banner });
