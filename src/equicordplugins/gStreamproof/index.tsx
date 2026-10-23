@@ -16,7 +16,7 @@ import { Logger } from "@utils/Logger";
 import { fetchUserProfile } from "@utils/discord";
 import definePlugin, { OptionType } from "@utils/types";
 import { RenderModalProps, User } from "@vencord/discord-types";
-import { ContextMenuApi, IconUtils, Menu, Modal, openModal, showToast, useEffect, useState, UserStore } from "@webpack/common";
+import { ContextMenuApi, FriendsStore, IconUtils, Menu, Modal, openModal, showToast, useEffect, useState, UserStore } from "@webpack/common";
 
 import type * as NativeModule from "./native";
 
@@ -26,7 +26,9 @@ const recorderLogger = new Logger("GStreamproof");
 export const settings = definePluginSettings({
     enabled: { type: OptionType.CUSTOM, default: false },
     recording: { type: OptionType.CUSTOM, default: false },
-    friendCount: { type: OptionType.CUSTOM, default: null as number | null },
+    // The real count still lives in RelationshipStore/FriendsStore; this only overrides what they report.
+    // emitChange() nudges anything already subscribed (like the friends list header) to re-read it now.
+    friendCount: { type: OptionType.CUSTOM, default: null as number | null, onChange: () => FriendsStore.emitChange() },
     messageCount: { type: OptionType.CUSTOM, default: null as number | null }
 });
 

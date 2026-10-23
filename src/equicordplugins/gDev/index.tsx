@@ -13,16 +13,35 @@ import { checkAccess, isAllowed, useAccess } from "@utils/gAccess";
 import GStreamproof, { settings as streamproofSettings } from "@equicordplugins/gStreamproof";
 import { classes } from "@utils/misc";
 import definePlugin from "@utils/types";
+import { FriendsStore } from "@webpack/common";
 
 import { settings as loadingSettings, stopLoadingStyle } from "@equicordplugins/gLoading";
 
 const SURFACES = ["base", "headerBar", "guildBar"] as const satisfies readonly SurfaceId[];
+// Discord API calls RelationshipType.INCOMING_REQUEST this; it's the "Received" group in the friends list.
+const INCOMING_REQUEST = 3;
 
 function sanitizeCount(value: number | null) {
     return typeof value === "number" && Number.isInteger(value) && value >= 0 && value <= 5000 ? value : null;
 }
 
 let removeProviders: Array<() => void> = [];
+let realGetRelationshipCounts: typeof FriendsStore.getRelationshipCounts | null = null;
+
+function applyRelationshipCountsOverride() {
+    if (realGetRelationshipCounts || !FriendsStore) return;
+    realGetRelationshipCounts = FriendsStore.getRelationshipCounts.bind(FriendsStore);
+    FriendsStore.getRelationshipCounts = () => {
+        const real = realGetRelationshipCounts!();
+        const override = isAllowed() ? sanitizeCount(streamproofSettings.store.friendCount) : null;
+        return override == null ? real : { ...real, [INCOMING_REQUEST]: override };
+    };
+}
+
+function removeRelationshipCountsOverride() {
+    if (realGetRelationshipCounts && FriendsStore) FriendsStore.getRelationshipCounts = realGetRelationshipCounts;
+    realGetRelationshipCounts = null;
+}
 
 async function refresh() {
     await checkAccess();
@@ -70,6 +89,7 @@ export default definePlugin({
     flux: {
         CONNECTION_OPEN() {
             stopLoadingStyle();
+            applyRelationshipCountsOverride();
             return refresh();
         }
     },
@@ -77,11 +97,13 @@ export default definePlugin({
     start() {
         removeProviders = SURFACES.map(id => addSurfacePropsProvider(id, () => isAllowed() ? { "data-gdev": "true" } : undefined));
         addUserAreaButton("g-shield", props => <ShieldButton {...props} />, 80);
+        applyRelationshipCountsOverride();
         refresh();
     },
 
     stop() {
         removeProviders.forEach(remove => remove());
         removeUserAreaButton("g-shield");
+        removeRelationshipCountsOverride();
     }
 });
