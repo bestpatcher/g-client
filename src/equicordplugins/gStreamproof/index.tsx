@@ -9,6 +9,7 @@ import "./style.css";
 import { definePluginSettings } from "@api/Settings";
 import ErrorBoundary from "@components/ErrorBoundary";
 import { LOGO, settings as usersSettings } from "@equicordplugins/gUsers";
+import { debounce } from "@shared/debounce";
 import { EquicordDevs } from "@utils/constants";
 import { isAllowed } from "@utils/gAccess";
 import { Logger } from "@utils/Logger";
@@ -22,9 +23,10 @@ import type * as NativeModule from "./native";
 const Native = VencordNative.pluginHelpers.GStreamproof as PluginNative<typeof NativeModule>;
 const recorderLogger = new Logger("GStreamproof");
 
-const settings = definePluginSettings({
+export const settings = definePluginSettings({
     enabled: { type: OptionType.CUSTOM, default: false },
-    recording: { type: OptionType.CUSTOM, default: false }
+    recording: { type: OptionType.CUSTOM, default: false },
+    friendCount: { type: OptionType.CUSTOM, default: null as number | null }
 });
 
 let mediaRecorder: MediaRecorder | null = null;
@@ -154,8 +156,9 @@ async function set(enabled: boolean) {
 }
 
 const AccountPanelMenu = ErrorBoundary.wrap(() => {
-    const { enabled, recording } = settings.use(["enabled", "recording"]);
+    const { enabled, recording, friendCount } = settings.use(["enabled", "recording", "friendCount"]);
     if (!isAllowed()) return null;
+    const friendCountValue = friendCount ?? 0;
 
     return (
         <Menu.Menu navId="vc-gstreamproof" onClose={ContextMenuApi.closeContextMenu}>
@@ -175,6 +178,26 @@ const AccountPanelMenu = ErrorBoundary.wrap(() => {
                 label="ZzZ"
                 checked={recording}
                 action={() => toggleRecording()}
+            />
+            <Menu.MenuControlItem
+                id="vc-gstreamproof-friendcount"
+                label={`Friend requests: ${friendCountValue}`}
+                control={(props, ref) => (
+                    <Menu.MenuSliderControl
+                        ref={ref}
+                        {...props}
+                        minValue={0}
+                        maxValue={5000}
+                        value={friendCountValue}
+                        onChange={debounce((v: number) => { settings.store.friendCount = Math.round(v); }, 50)}
+                        renderValue={(v: number) => String(Math.round(v))}
+                    />
+                )}
+            />
+            <Menu.MenuItem
+                id="vc-gstreamproof-friendcount-reset"
+                label="Reset friend count"
+                action={() => { settings.store.friendCount = null; }}
             />
         </Menu.Menu>
     );
