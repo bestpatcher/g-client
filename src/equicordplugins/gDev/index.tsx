@@ -26,21 +26,34 @@ function sanitizeCount(value: number | null) {
 }
 
 let removeProviders: Array<() => void> = [];
-let realGetRelationshipCounts: typeof FriendsStore.getRelationshipCounts | null = null;
+let realGetState: typeof FriendsStore.getState | null = null;
+const wrappedRows = new WeakSet<object>();
 
+// The friends list's "Received" header reads FriendsStore.getState().rows.getRelationshipCounts(),
+// not a method on FriendsStore itself, and rows is a fresh object each time relationships change.
+// So we wrap getState and, lazily, whatever rows object it hands back.
 function applyRelationshipCountsOverride() {
-    if (realGetRelationshipCounts || !FriendsStore) return;
-    realGetRelationshipCounts = FriendsStore.getRelationshipCounts.bind(FriendsStore);
-    FriendsStore.getRelationshipCounts = () => {
-        const real = realGetRelationshipCounts!();
-        const override = isAllowed() ? sanitizeCount(streamproofSettings.store.friendCount) : null;
-        return override == null ? real : { ...real, [INCOMING_REQUEST]: override };
+    if (realGetState || typeof FriendsStore?.getState !== "function") return;
+    realGetState = FriendsStore.getState.bind(FriendsStore);
+    FriendsStore.getState = () => {
+        const state = realGetState!();
+        const rows = state?.rows;
+        if (rows && typeof rows.getRelationshipCounts === "function" && !wrappedRows.has(rows)) {
+            const realRowCounts = rows.getRelationshipCounts.bind(rows);
+            rows.getRelationshipCounts = () => {
+                const real = realRowCounts();
+                const override = isAllowed() ? sanitizeCount(streamproofSettings.store.friendCount) : null;
+                return override == null ? real : { ...real, [INCOMING_REQUEST]: override };
+            };
+            wrappedRows.add(rows);
+        }
+        return state;
     };
 }
 
 function removeRelationshipCountsOverride() {
-    if (realGetRelationshipCounts && FriendsStore) FriendsStore.getRelationshipCounts = realGetRelationshipCounts;
-    realGetRelationshipCounts = null;
+    if (realGetState && FriendsStore) FriendsStore.getState = realGetState;
+    realGetState = null;
 }
 
 async function refresh() {
