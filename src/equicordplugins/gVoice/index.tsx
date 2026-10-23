@@ -11,6 +11,7 @@ import { addUserAreaButton, removeUserAreaButton, UserAreaButton, UserAreaButton
 import { openSauce, prefetchPatcher } from "@equicordplugins/lowzModules";
 import { EquicordDevs } from "@utils/constants";
 import { copyWithToast } from "@utils/discord";
+import { isLicensed } from "@utils/gAccess";
 import { Logger } from "@utils/Logger";
 import definePlugin, { OptionType } from "@utils/types";
 import { find } from "@webpack";
@@ -452,6 +453,7 @@ export default definePlugin({
         patchHits++;
         lastRealMute = real;
         captureSender(ctx, args);
+        if (!isLicensed()) return real;
         return settings.store.fakeMute || settings.store.fakeDeafen ? true : real;
     },
 
@@ -459,6 +461,7 @@ export default definePlugin({
         patchHits++;
         lastRealDeaf = real;
         captureSender(ctx, args);
+        if (!isLicensed()) return real;
         return settings.store.fakeDeafen ? true : real;
     },
 
