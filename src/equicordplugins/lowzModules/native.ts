@@ -100,6 +100,26 @@ export async function stereoDefault(_: IpcMainInvokeEvent) {
     return installSet("stereo");
 }
 
+export async function restoreOriginalModules(_: IpcMainInvokeEvent) {
+    try {
+        const voice = await findVoiceFolder();
+        const allNames = new Set([...Object.keys(SETS.lowz.files), ...Object.keys(SETS.stereo.files)]);
+        let restored = 0;
+
+        for (const name of allNames) {
+            const backup = join(voice, `${name}.original`);
+            if (!(await exists(backup))) continue;
+            await writeFile(join(voice, name), await readFile(backup));
+            restored++;
+        }
+
+        if (restored === 0) return { success: false, error: "No original files were found. You may not have changed your voice modules yet." };
+        return { success: true };
+    } catch (e) {
+        return { success: false, error: e instanceof Error ? e.message.replaceAll(process.resourcesPath, "") : "Something went wrong." };
+    }
+}
+
 let cached: Promise<void> | null = null;
 
 async function ensurePatcher() {
