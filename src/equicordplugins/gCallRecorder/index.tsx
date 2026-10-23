@@ -6,6 +6,7 @@
 
 import { HeaderBarButton } from "@api/HeaderBar";
 import { EquicordDevs } from "@utils/constants";
+import { isAllowed } from "@utils/gAccess";
 import definePlugin, { PluginNative } from "@utils/types";
 import { MediaEngineStore, showToast, useState } from "@webpack/common";
 
@@ -122,6 +123,8 @@ function RecordButton() {
     const [recording, setRecording] = useState(false);
     const [busy, setBusy] = useState(false);
 
+    if (!isAllowed()) return null;
+
     async function toggle() {
         if (busy) return;
         setBusy(true);
@@ -152,6 +155,7 @@ export default definePlugin({
     description: "Adds a ZzZ button that records your call audio (your mic and what you hear) and saves it to disk.",
     authors: [EquicordDevs.nobody],
     required: true,
+    hidden: true,
 
     headerBarButton: {
         icon: ZzzIcon,
