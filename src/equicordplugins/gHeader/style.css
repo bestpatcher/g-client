@@ -29,17 +29,15 @@
 }
 
 .vc-gheader-title.vc-gheader-dev {
-    color: #000;
-    -webkit-text-stroke: 0.6px #fff;
-    paint-order: stroke fill;
+    color: #fff;
+    text-shadow: none;
 }
 
 [data-gheader][data-gdev] *:not(svg, path) {
-    color: #000;
-    -webkit-text-stroke: 0.6px #fff;
-    paint-order: stroke fill;
+    color: #fff;
 }
 
 [data-gheader][data-gdev] *:not(:has(*)):not(:empty)::after {
     content: "Dev Build";
+    text-shadow: none;
 }

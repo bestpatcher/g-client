@@ -1,7 +1,5 @@
 .vc-pindms-section-container.vc-ignored-header {
-    color: #000 !important; /* Replaces the category color Pin DMs sets inline */
-    -webkit-text-stroke: 0.6px #fff;
-    paint-order: stroke fill;
+    color: #fff !important; /* Replaces the category color Pin DMs sets inline */
     font-size: 14px;
     font-weight: 600;
 }
