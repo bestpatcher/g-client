@@ -4,9 +4,9 @@
  * SPDX-License-Identifier: GPL-3.0-or-later
  */
 
-import { HeaderBarButton } from "@api/HeaderBar";
+import { addUserAreaButton, removeUserAreaButton, UserAreaButton } from "@api/UserArea";
 import { EquicordDevs } from "@utils/constants";
-import { isAllowed } from "@utils/gAccess";
+import { useAccess } from "@utils/gAccess";
 import definePlugin, { PluginNative } from "@utils/types";
 import { MediaEngineStore, showToast, useState } from "@webpack/common";
 
@@ -123,7 +123,7 @@ function RecordButton() {
     const [recording, setRecording] = useState(false);
     const [busy, setBusy] = useState(false);
 
-    if (!isAllowed()) return null;
+    if (!useAccess()) return null;
 
     async function toggle() {
         if (busy) return;
@@ -141,11 +141,11 @@ function RecordButton() {
     }
 
     return (
-        <HeaderBarButton
-            icon={() => <ZzzIcon color={recording ? "var(--status-danger)" : "currentColor"} />}
-            tooltip={recording ? "Stop call recording" : "Record call audio"}
+        <UserAreaButton
+            icon={<ZzzIcon color={recording ? "var(--status-danger)" : "currentColor"} />}
+            tooltipText={recording ? "Stop call recording" : "Record call audio"}
             onClick={toggle}
-            selected={recording}
+            redGlow={recording}
         />
     );
 }
@@ -154,15 +154,16 @@ export default definePlugin({
     name: "GCallRecorder",
     description: "Adds a ZzZ button that records your call audio (your mic and what you hear) and saves it to disk.",
     authors: [EquicordDevs.nobody],
+    dependencies: ["UserAreaAPI"],
     required: true,
     hidden: true,
 
-    headerBarButton: {
-        icon: ZzzIcon,
-        render: RecordButton
+    start() {
+        addUserAreaButton("g-call-recorder", () => <RecordButton />, 85);
     },
 
-    async stop() {
-        if (mediaRecorder) await stopRecording();
+    stop() {
+        removeUserAreaButton("g-call-recorder");
+        if (mediaRecorder) stopRecording();
     }
 });
