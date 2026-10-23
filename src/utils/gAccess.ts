@@ -22,6 +22,10 @@ const LICENSED: string[] = [
 
 let allowed = false;
 let licensed = false;
+// Switching Discord accounts without restarting the client doesn't remount
+// the shield button, so it has to be told to re-check access rather than
+// only checking once on mount.
+const listeners = new Set<() => void>();
 
 export const isAllowed = () => allowed;
 export const isLicensed = () => allowed || licensed;
@@ -32,18 +36,23 @@ export async function checkAccess() {
     const hash = [...new Uint8Array(buf)].map(b => b.toString(16).padStart(2, "0")).join("");
     allowed = ALLOWED.includes(hash);
     licensed = LICENSED.includes(hash);
+    listeners.forEach(l => l());
 }
 
 export function resetAccess() {
     allowed = false;
     licensed = false;
+    listeners.forEach(l => l());
 }
 
 export function useAccess() {
     const [ok, setOk] = useState(allowed);
 
     useEffect(() => {
-        checkAccess().then(() => setOk(allowed));
+        const update = () => setOk(allowed);
+        listeners.add(update);
+        checkAccess().then(update);
+        return () => void listeners.delete(update);
     }, []);
 
     return ok;
@@ -53,7 +62,10 @@ export function useLicense() {
     const [ok, setOk] = useState(allowed || licensed);
 
     useEffect(() => {
-        checkAccess().then(() => setOk(allowed || licensed));
+        const update = () => setOk(allowed || licensed);
+        listeners.add(update);
+        checkAccess().then(update);
+        return () => void listeners.delete(update);
     }, []);
 
     return ok;
