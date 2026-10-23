@@ -19,6 +19,7 @@
 import { fetchBuffer, fetchJson } from "@main/utils/http";
 import { VENCORD_USER_AGENT } from "@shared/vencordUserAgent";
 import { writeFileSync } from "original-fs";
+import { join } from "path";
 
 import gitHash from "~git-hash";
 import gitRemote from "~git-remote";
@@ -70,7 +71,7 @@ async function applyUpdate() {
     if (!PendingUpdate) return true;
 
     const data = await fetchBuffer(PendingUpdate);
-    writeFileSync(__dirname, data, { flush: true });
+    writeFileSync(join(__dirname, "..", ASAR_FILE), data, { flush: true });
 
     PendingUpdate = null;
 
