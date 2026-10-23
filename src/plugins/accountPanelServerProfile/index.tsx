@@ -71,6 +71,7 @@ export default definePlugin({
     description: "Right click your account panel in the bottom left to view your profile in the current server",
     tags: ["Appearance", "Servers"],
     authors: [Devs.Nuckyz, Devs.relitrix],
+    required: true,
     settings,
 
     patches: [
