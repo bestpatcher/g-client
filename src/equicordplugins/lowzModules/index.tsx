@@ -20,6 +20,14 @@ import { Modal, openModal, TextInput, useState } from "@webpack/common";
 
 const Native = VencordNative.pluginHelpers.LowzModules as PluginNative<typeof import("./native")>;
 
+function discordBranchLabel() {
+    switch (window.GLOBAL_ENV.RELEASE_CHANNEL) {
+        case "canary": return "Discord Canary";
+        case "ptb": return "Discord PTB";
+        default: return "Discord";
+    }
+}
+
 export function openSauce() {
     openModal(modalProps => <KeyModal modalProps={modalProps} />);
 }
@@ -38,7 +46,7 @@ function KeyModal({ modalProps }: { modalProps: object; }) {
         setMessage("");
         const res = await Native.injectWithKey(key, mode);
         setBusy(false);
-        setMessage(res.success ? (mode === "on" ? "On" : "Off") : res.error ?? "Something went wrong.");
+        setMessage(res.success ? `${discordBranchLabel()} ${mode === "on" ? "On" : "Off"}` : res.error ?? "Something went wrong.");
     }
 
     return (
