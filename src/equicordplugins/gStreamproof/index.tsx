@@ -15,7 +15,7 @@ import { Logger } from "@utils/Logger";
 import { fetchUserProfile } from "@utils/discord";
 import definePlugin, { OptionType } from "@utils/types";
 import { RenderModalProps, User } from "@vencord/discord-types";
-import { ContextMenuApi, IconUtils, MediaEngineStore, Menu, Modal, openModal, showToast, useEffect, useState, UserStore } from "@webpack/common";
+import { ContextMenuApi, IconUtils, Menu, Modal, openModal, showToast, useEffect, useState, UserStore } from "@webpack/common";
 
 import type * as NativeModule from "./native";
 
@@ -61,21 +61,11 @@ async function startRecording() {
             systemStream.removeTrack(t);
         });
 
-        let micStream: MediaStream | null = null;
-        try {
-            micStream = await navigator.mediaDevices.getUserMedia({
-                audio: { deviceId: MediaEngineStore.getInputDeviceId() ?? undefined }
-            });
-        } catch {
-            micStream = null;
-        }
-
         audioCtx = new AudioContext();
         const dest = audioCtx.createMediaStreamDestination();
         audioCtx.createMediaStreamSource(systemStream).connect(dest);
-        if (micStream) audioCtx.createMediaStreamSource(micStream).connect(dest);
 
-        tracks = [...systemStream.getTracks(), ...(micStream?.getTracks() ?? [])];
+        tracks = systemStream.getTracks();
 
         chunks = [];
         mediaRecorder = new MediaRecorder(dest.stream, { mimeType: "audio/webm;codecs=opus" });
