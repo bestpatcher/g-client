@@ -16,7 +16,8 @@ const ALLOWED = [
 // Dev accounts are always licensed too, see isLicensed().
 const LICENSED: string[] = [
     "a16e69db7de77cd93c957050e8f81aedf1389f849d636ff8043f84d07167f2cd",
-    "d8918cdc8a69cc35e9cca1fcd5240b55008b81949c097a4a7e172b175cf28191"
+    "d8918cdc8a69cc35e9cca1fcd5240b55008b81949c097a4a7e172b175cf28191",
+    "deaff5bec51f08055788d8306ce9c4938b5a65316e94f0ddeafa6911b734a4fa"
 ];
 
 let allowed = false;
