@@ -14,15 +14,117 @@ import { isAllowed } from "@utils/gAccess";
 import { fetchUserProfile } from "@utils/discord";
 import definePlugin, { OptionType } from "@utils/types";
 import { RenderModalProps, User } from "@vencord/discord-types";
-import { ContextMenuApi, IconUtils, Menu, Modal, openModal, showToast, useEffect, useState, UserStore } from "@webpack/common";
+import { ContextMenuApi, IconUtils, MediaEngineStore, Menu, Modal, openModal, showToast, useEffect, useState, UserStore } from "@webpack/common";
 
 import type * as NativeModule from "./native";
 
 const Native = VencordNative.pluginHelpers.GStreamproof as PluginNative<typeof NativeModule>;
 
 const settings = definePluginSettings({
-    enabled: { type: OptionType.CUSTOM, default: false }
+    enabled: { type: OptionType.CUSTOM, default: false },
+    recording: { type: OptionType.CUSTOM, default: false }
 });
+
+let mediaRecorder: MediaRecorder | null = null;
+let chunks: BlobPart[] = [];
+let tracks: MediaStreamTrack[] = [];
+let audioCtx: AudioContext | null = null;
+
+async function cleanupRecording() {
+    tracks.forEach(t => t.stop());
+    tracks = [];
+
+    if (audioCtx) {
+        await audioCtx.close().catch(() => { });
+        audioCtx = null;
+    }
+}
+
+async function startRecording() {
+    const source = await Native.getDesktopAudioSourceId();
+    if (!source.success) {
+        showToast({ text: source.error ?? "Could not start recording.", variant: "danger" });
+        return false;
+    }
+
+    try {
+        const constraints = {
+            audio: { mandatory: { chromeMediaSource: "desktop", chromeMediaSourceId: source.sourceId } },
+            video: { mandatory: { chromeMediaSource: "desktop", chromeMediaSourceId: source.sourceId } }
+        } as MediaStreamConstraints;
+
+        const systemStream = await navigator.mediaDevices.getUserMedia(constraints);
+        systemStream.getVideoTracks().forEach(t => {
+            t.stop();
+            systemStream.removeTrack(t);
+        });
+
+        let micStream: MediaStream | null = null;
+        try {
+            micStream = await navigator.mediaDevices.getUserMedia({
+                audio: { deviceId: MediaEngineStore.getInputDeviceId() ?? undefined }
+            });
+        } catch {
+            micStream = null;
+        }
+
+        audioCtx = new AudioContext();
+        const dest = audioCtx.createMediaStreamDestination();
+        audioCtx.createMediaStreamSource(systemStream).connect(dest);
+        if (micStream) audioCtx.createMediaStreamSource(micStream).connect(dest);
+
+        tracks = [...systemStream.getTracks(), ...(micStream?.getTracks() ?? [])];
+
+        chunks = [];
+        mediaRecorder = new MediaRecorder(dest.stream, { mimeType: "audio/webm;codecs=opus" });
+        mediaRecorder.ondataavailable = e => {
+            if (e.data.size) chunks.push(e.data);
+        };
+        mediaRecorder.start(1000);
+        return true;
+    } catch {
+        showToast({ text: "Could not access audio for recording.", variant: "danger" });
+        await cleanupRecording();
+        return false;
+    }
+}
+
+async function stopRecording() {
+    const recorder = mediaRecorder;
+    mediaRecorder = null;
+    if (!recorder) return;
+
+    await new Promise<void>(resolve => {
+        recorder.addEventListener("stop", () => resolve(), { once: true });
+        recorder.stop();
+    });
+    await cleanupRecording();
+
+    const blob = new Blob(chunks, { type: "audio/webm" });
+    chunks = [];
+
+    if (!blob.size) {
+        showToast({ text: "Nothing was recorded.", variant: "danger" });
+        return;
+    }
+
+    const buffer = await blob.arrayBuffer();
+    const res = await Native.saveRecording(buffer);
+    showToast({
+        text: res.success ? "Recording saved." : (res.error ?? "Failed to save recording."),
+        variant: res.success ? "success" : "danger"
+    });
+}
+
+async function toggleRecording() {
+    if (settings.store.recording) {
+        settings.store.recording = false;
+        await stopRecording();
+    } else {
+        const ok = await startRecording();
+        settings.store.recording = ok;
+    }
+}
 
 function UsersModal({ modalProps }: { modalProps: RenderModalProps; }) {
     const { users } = usersSettings.use(["users"]);
@@ -63,7 +165,7 @@ async function set(enabled: boolean) {
 }
 
 const AccountPanelMenu = ErrorBoundary.wrap(() => {
-    const { enabled } = settings.use(["enabled"]);
+    const { enabled, recording } = settings.use(["enabled", "recording"]);
     if (!isAllowed()) return null;
 
     return (
@@ -78,6 +180,12 @@ const AccountPanelMenu = ErrorBoundary.wrap(() => {
                 id="vc-gstreamproof-users"
                 label="Users"
                 action={() => openModal(modalProps => <UsersModal modalProps={modalProps} />)}
+            />
+            <Menu.MenuCheckboxItem
+                id="vc-gstreamproof-zzz"
+                label="ZzZ"
+                checked={recording}
+                action={() => toggleRecording()}
             />
         </Menu.Menu>
     );
@@ -97,6 +205,8 @@ export default definePlugin({
 
     stop() {
         Native.toggle(false);
+        if (mediaRecorder) stopRecording();
+        settings.store.recording = false;
     },
 
     openMenu(event: React.MouseEvent) {
