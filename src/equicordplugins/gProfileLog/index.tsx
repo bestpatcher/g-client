@@ -68,6 +68,7 @@ function Value({ id, field, value }: { id: string; field: Field; value: string |
 function pastValues(changes: Change[], field: Field) {
     const seen: string[] = [];
     for (const c of changes) {
+        if (c.field !== field) continue;
         for (const v of [c.old, c.now]) {
             if (v && !seen.includes(v)) seen.push(v);
         }
@@ -106,8 +107,7 @@ function HistoryModalContent({ user }: { user: User; }) {
 function HistoryModal({ user, modalProps }: { user: User; modalProps: RenderModalProps; }) {
     return (
         <ErrorBoundary>
-            <Modal {...modalProps} size="md" title="">
-                <div style={{ color: "#fff", fontWeight: 600, fontSize: "18px", marginBottom: "12px" }}>{`${user.globalName ?? user.username} history`}</div>
+            <Modal {...modalProps} size="md" title={`${user.globalName ?? user.username} history`}>
                 <HistoryModalContent user={user} />
             </Modal>
         </ErrorBoundary>
