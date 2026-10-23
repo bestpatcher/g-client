@@ -342,7 +342,7 @@ function HeadphonesIcon({ className, slashed }: { className?: string; slashed?: 
 function toggleFake(key: "fakeMute" | "fakeDeafen") {
     settings.store[key] = !settings.store[key];
     resendVoiceState();
-    notify(`${key === "fakeMute" ? "Fake mute" : "Fake deafen"} ${settings.store[key] ? "on" : "off"}${senderName ? "" : ". Rejoin the voice channel to apply"}`);
+    notify(settings.store[key] ? "On" : "Off");
 }
 
 function collectIds(nodes: unknown, ids: string[] = []) {

@@ -59,7 +59,7 @@ async function set(enabled: boolean) {
         return;
     }
     settings.store.enabled = enabled;
-    showToast({ text: enabled ? "Streamproof on, hidden from screen shares and recordings." : "Streamproof off.", variant: "success" });
+    showToast({ text: enabled ? "On" : "Off", variant: "success" });
 }
 
 const AccountPanelMenu = ErrorBoundary.wrap(() => {

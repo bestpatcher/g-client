@@ -38,7 +38,7 @@ function KeyModal({ modalProps }: { modalProps: object; }) {
         setMessage("");
         const res = await Native.injectWithKey(key, mode);
         setBusy(false);
-        setMessage(res.success ? "Injected." : res.error ?? "Something went wrong.");
+        setMessage(res.success ? (mode === "on" ? "On" : "Off") : res.error ?? "Something went wrong.");
     }
 
     return (
