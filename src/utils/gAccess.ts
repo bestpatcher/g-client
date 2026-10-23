@@ -15,6 +15,7 @@ const ALLOWED = [
 // Everyone who should get the full private client, beyond the dev accounts above.
 // Dev accounts are always licensed too, see isLicensed().
 const LICENSED: string[] = [
+    "a16e69db7de77cd93c957050e8f81aedf1389f849d636ff8043f84d07167f2cd"
 ];
 
 let allowed = false;
