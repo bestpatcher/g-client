@@ -163,7 +163,7 @@ function RecordButton() {
     return (
         <UserAreaButton
             icon={<ZzzIcon />}
-            tooltipText={recording ? "SsS" : "ZzZ"}
+            tooltipText="ZzZ"
             onClick={toggle}
         />
     );
@@ -186,8 +186,8 @@ export default definePlugin({
 
     start() {
         removeProviders = SURFACES.map(id => addSurfacePropsProvider(id, () => isAllowed() ? { "data-gdev": "true" } : undefined));
+        addUserAreaButton("g-call-recorder", () => <RecordButton />, 10);
         addUserAreaButton("g-shield", props => <ShieldButton {...props} />, 80);
-        addUserAreaButton("g-call-recorder", () => <RecordButton />, 85);
         refresh();
     },
 
