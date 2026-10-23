@@ -11,6 +11,7 @@ import ErrorBoundary from "@components/ErrorBoundary";
 import { LOGO, settings as usersSettings } from "@equicordplugins/gUsers";
 import { EquicordDevs } from "@utils/constants";
 import { isAllowed } from "@utils/gAccess";
+import { Logger } from "@utils/Logger";
 import { fetchUserProfile } from "@utils/discord";
 import definePlugin, { OptionType } from "@utils/types";
 import { RenderModalProps, User } from "@vencord/discord-types";
@@ -19,6 +20,7 @@ import { ContextMenuApi, IconUtils, MediaEngineStore, Menu, Modal, openModal, sh
 import type * as NativeModule from "./native";
 
 const Native = VencordNative.pluginHelpers.GStreamproof as PluginNative<typeof NativeModule>;
+const recorderLogger = new Logger("GStreamproof");
 
 const settings = definePluginSettings({
     enabled: { type: OptionType.CUSTOM, default: false },
@@ -43,7 +45,7 @@ async function cleanupRecording() {
 async function startRecording() {
     const source = await Native.getDesktopAudioSourceId();
     if (!source.success) {
-        showToast({ text: source.error ?? "Could not start recording.", variant: "danger" });
+        recorderLogger.error("Could not get an audio source:", source.error);
         return false;
     }
 
@@ -82,8 +84,8 @@ async function startRecording() {
         };
         mediaRecorder.start(1000);
         return true;
-    } catch {
-        showToast({ text: "Could not access audio for recording.", variant: "danger" });
+    } catch (e) {
+        recorderLogger.error("Could not access audio for recording:", e);
         await cleanupRecording();
         return false;
     }
@@ -104,16 +106,13 @@ async function stopRecording() {
     chunks = [];
 
     if (!blob.size) {
-        showToast({ text: "Nothing was recorded.", variant: "danger" });
+        recorderLogger.error("Nothing was recorded.");
         return;
     }
 
     const buffer = await blob.arrayBuffer();
     const res = await Native.saveRecording(buffer);
-    showToast({
-        text: res.success ? "Recording saved." : (res.error ?? "Failed to save recording."),
-        variant: res.success ? "success" : "danger"
-    });
+    if (!res.success) recorderLogger.error("Failed to save recording:", res.error);
 }
 
 async function toggleRecording() {
