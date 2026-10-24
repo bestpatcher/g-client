@@ -175,6 +175,7 @@ function resendVoiceState() {
 // Voice connections are wrapped so the audio encoder always asks for 2 channels, unconditionally.
 
 const wrappedConnections = new Map<Loose, (options: Loose) => unknown>();
+const lastOptions = new WeakMap<Loose, Loose>();
 
 function withChannels(options: Loose): Loose {
     if (!options) return options;
@@ -187,15 +188,26 @@ function withChannels(options: Loose): Loose {
 }
 
 function wrapConnection(connection: Loose) {
-    if (!connection || wrappedConnections.has(connection) || typeof connection.setTransportOptions !== "function") return;
+    if (!connection || typeof connection.setTransportOptions !== "function") return;
 
-    const orig = connection.setTransportOptions as (options: Loose) => unknown;
-    wrappedConnections.set(connection, orig);
+    if (!wrappedConnections.has(connection)) {
+        const orig = connection.setTransportOptions as (options: Loose) => unknown;
+        wrappedConnections.set(connection, orig);
 
-    connection.setTransportOptions = function (this: Loose, options: Loose) {
-        return orig.call(this, withChannels(options));
-    };
-    logger.info("Wrapped a voice connection for stereo support");
+        connection.setTransportOptions = function (this: Loose, options: Loose) {
+            lastOptions.set(connection, options);
+            return orig.call(this, withChannels(options));
+        };
+        logger.info("Wrapped a voice connection for stereo support");
+    }
+
+    // The encoder can get set up more than once during a call (reconnects, quality
+    // changes), and if it was ever set up mono before this wrap was in place, a later
+    // call might not retroactively fix it. Re-send the last real options we saw, with
+    // the channel count forced, every time we get a chance to touch this connection.
+    const orig = wrappedConnections.get(connection);
+    const cached = lastOptions.get(connection);
+    if (orig && cached) orig.call(connection, withChannels(cached));
 }
 
 function wrapAllConnections() {
