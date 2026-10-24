@@ -88,7 +88,7 @@ function LowzModulesTab() {
         <SettingsTab>
             <Heading>Lowz Modules</Heading>
             <Paragraph className={Margins.bottom16}>
-                Change Modules installs the Lowz voice modules. Your original files are saved the first time you use it. If your mic starts breaking up partway through calls, try Restore Original to put Discord's own voice modules back.
+                Change Modules wipes your voice modules folder and installs the Lowz set fresh, with no backup. Restore Original only works if you have a backup from before this change; otherwise you'll need to reinstall Discord to get its own voice modules back.
             </Paragraph>
             <div className={Margins.bottom16}>
                 <Button disabled={busy} onClick={() => run(Native.changeModules)}>Change Modules</Button>
