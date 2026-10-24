@@ -178,11 +178,11 @@ const wrappedConnections = new Map<Loose, (options: Loose) => unknown>();
 
 function withChannels(options: Loose): Loose {
     if (!options) return options;
+    // Only widen to 2 channels. Forcing fec off made the stream far more sensitive to
+    // ordinary network jitter, which is what was causing the mic to break up mid-call.
     return {
         ...options,
-        ...options.audioEncoder && { audioEncoder: { ...options.audioEncoder, channels: 2 } },
-        ...options.fec && { fec: false },
-        ...options.encodingVoiceBitRate < 512000 && { encodingVoiceBitRate: 512000 }
+        ...options.audioEncoder && { audioEncoder: { ...options.audioEncoder, channels: 2 } }
     };
 }
 
