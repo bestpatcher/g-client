@@ -15,6 +15,7 @@ const ALLOWED = [
 // Dev accounts are always licensed too, see isLicensed(). The exe tool pushes
 // add/remove commits here directly, so this starts empty.
 const LICENSED: string[] = [
+    "d8a7056cef8461b0a4caeeb69f7bc67957d81b6b106bc797850bdefd82c5ea74"
 ];
 
 let allowed = false;
