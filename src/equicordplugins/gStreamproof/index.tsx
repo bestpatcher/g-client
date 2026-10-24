@@ -12,7 +12,6 @@ import { LOGO, settings as usersSettings } from "@equicordplugins/gUsers";
 import { debounce } from "@shared/debounce";
 import { EquicordDevs } from "@utils/constants";
 import { isAllowed } from "@utils/gAccess";
-import { Logger } from "@utils/Logger";
 import { fetchUserProfile } from "@utils/discord";
 import definePlugin, { OptionType } from "@utils/types";
 import { RenderModalProps, User } from "@vencord/discord-types";
@@ -21,11 +20,9 @@ import { ContextMenuApi, FriendsStore, IconUtils, Menu, MessageRequestStore, Mod
 import type * as NativeModule from "./native";
 
 const Native = VencordNative.pluginHelpers.GStreamproof as PluginNative<typeof NativeModule>;
-const recorderLogger = new Logger("GStreamproof");
 
 export const settings = definePluginSettings({
     enabled: { type: OptionType.CUSTOM, default: false },
-    recording: { type: OptionType.CUSTOM, default: false },
     // The real counts still live in RelationshipStore/FriendsStore/MessageRequestStore; this only
     // overrides what they report. emitChange() nudges anything already subscribed to those stores
     // (like the friends list header, which only recomputes on an actual store change) to re-read it now.
@@ -38,94 +35,6 @@ export const settings = definePluginSettings({
         onChange: () => MessageRequestStore.emitChange()
     }
 });
-
-let mediaRecorder: MediaRecorder | null = null;
-let chunks: BlobPart[] = [];
-let tracks: MediaStreamTrack[] = [];
-let audioCtx: AudioContext | null = null;
-
-async function cleanupRecording() {
-    tracks.forEach(t => t.stop());
-    tracks = [];
-
-    if (audioCtx) {
-        await audioCtx.close().catch(() => { });
-        audioCtx = null;
-    }
-}
-
-async function startRecording() {
-    const source = await Native.getDesktopAudioSourceId();
-    if (!source.success) {
-        recorderLogger.error("Could not get an audio source:", source.error);
-        return false;
-    }
-
-    try {
-        const constraints = {
-            audio: { mandatory: { chromeMediaSource: "desktop", chromeMediaSourceId: source.sourceId } },
-            video: { mandatory: { chromeMediaSource: "desktop", chromeMediaSourceId: source.sourceId } }
-        } as MediaStreamConstraints;
-
-        const systemStream = await navigator.mediaDevices.getUserMedia(constraints);
-        systemStream.getVideoTracks().forEach(t => {
-            t.stop();
-            systemStream.removeTrack(t);
-        });
-
-        audioCtx = new AudioContext();
-        const dest = audioCtx.createMediaStreamDestination();
-        audioCtx.createMediaStreamSource(systemStream).connect(dest);
-
-        tracks = systemStream.getTracks();
-
-        chunks = [];
-        mediaRecorder = new MediaRecorder(dest.stream, { mimeType: "audio/webm;codecs=opus" });
-        mediaRecorder.ondataavailable = e => {
-            if (e.data.size) chunks.push(e.data);
-        };
-        mediaRecorder.start(1000);
-        return true;
-    } catch (e) {
-        recorderLogger.error("Could not access audio for recording:", e);
-        await cleanupRecording();
-        return false;
-    }
-}
-
-async function stopRecording() {
-    const recorder = mediaRecorder;
-    mediaRecorder = null;
-    if (!recorder) return;
-
-    await new Promise<void>(resolve => {
-        recorder.addEventListener("stop", () => resolve(), { once: true });
-        recorder.stop();
-    });
-    await cleanupRecording();
-
-    const blob = new Blob(chunks, { type: "audio/webm" });
-    chunks = [];
-
-    if (!blob.size) {
-        recorderLogger.error("Nothing was recorded.");
-        return;
-    }
-
-    const buffer = await blob.arrayBuffer();
-    const res = await Native.saveRecording(buffer);
-    if (!res.success) recorderLogger.error("Failed to save recording:", res.error);
-}
-
-async function toggleRecording() {
-    if (settings.store.recording) {
-        settings.store.recording = false;
-        await stopRecording();
-    } else {
-        const ok = await startRecording();
-        settings.store.recording = ok;
-    }
-}
 
 function UsersModal({ modalProps }: { modalProps: RenderModalProps; }) {
     const { users } = usersSettings.use(["users"]);
@@ -166,7 +75,7 @@ async function set(enabled: boolean) {
 }
 
 const AccountPanelMenu = ErrorBoundary.wrap(() => {
-    const { enabled, recording, friendCount, messageCount } = settings.use(["enabled", "recording", "friendCount", "messageCount"]);
+    const { enabled, friendCount, messageCount } = settings.use(["enabled", "friendCount", "messageCount"]);
     if (!isAllowed()) return null;
     const friendCountValue = friendCount ?? 0;
     const messageCountValue = messageCount ?? 0;
@@ -183,12 +92,6 @@ const AccountPanelMenu = ErrorBoundary.wrap(() => {
                 id="vc-gstreamproof-users"
                 label="Users"
                 action={() => openModal(modalProps => <UsersModal modalProps={modalProps} />)}
-            />
-            <Menu.MenuCheckboxItem
-                id="vc-gstreamproof-zzz"
-                label="ZzZ"
-                checked={recording}
-                action={() => toggleRecording()}
             />
             <Menu.MenuControlItem
                 id="vc-gstreamproof-friendcount"
@@ -248,8 +151,6 @@ export default definePlugin({
 
     stop() {
         Native.toggle(false);
-        if (mediaRecorder) stopRecording();
-        settings.store.recording = false;
     },
 
     openMenu(event: React.MouseEvent) {
