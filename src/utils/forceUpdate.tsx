@@ -10,7 +10,7 @@ import { relaunch } from "./native";
 
 export function showForcedUpdate() {
     openModal(props => (
-        <Modal {...props} onClose={() => { }} size="sm" title="Update" actions={[{ text: "Update", variant: "primary", onClick: relaunch }]}>
+        <Modal {...props} onClose={() => { }} role="alertdialog" size="sm" title="Update" actions={[{ text: "Update", variant: "primary", onClick: relaunch }]}>
             <div style={{ padding: 16 }}>A new update is ready. Press Update to restart and install it.</div>
         </Modal>
     ), { onCloseRequest() { } });

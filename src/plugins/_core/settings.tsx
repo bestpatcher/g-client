@@ -18,6 +18,7 @@ import {
 } from "@components/settings";
 import { gitHashShort } from "@shared/vencordUserAgent";
 import { Devs } from "@utils/constants";
+import { isLicensed } from "@utils/gAccess";
 import { isTruthy } from "@utils/guards";
 import definePlugin, { IconProps, OptionType } from "@utils/types";
 import { waitFor } from "@webpack";
@@ -185,6 +186,10 @@ export default definePlugin({
         const layout = originalLayoutBuilder.buildLayout();
         if (originalLayoutBuilder.key !== "$Root") return layout;
         if (!Array.isArray(layout)) return layout;
+        // This patch runs unconditionally regardless of whether this plugin is "stopped",
+        // so someone off the allow list has to be kept out here too, not just by GLicense
+        // stopping plugins — otherwise they'd keep seeing the whole settings section.
+        if (!isLicensed()) return layout;
         if (layout.some(s => s?.key === "equicord_section")) return layout;
 
         const { buildEntry } = this;
