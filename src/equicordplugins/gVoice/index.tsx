@@ -182,20 +182,29 @@ const lastOptions = new WeakMap<Loose, Loose>();
 const transportStats = {
     calls: 0,
     lastAudioEncoderBefore: null as Loose | null,
-    lastAudioEncoderAfter: null as Loose | null
+    lastAudioEncoderAfter: null as Loose | null,
+    lastBitRateBefore: null as number | null,
+    lastBitRateAfter: null as number | null
 };
+
+// Opus at Discord's normal voice bitrate (64kbps) doesn't carry enough headroom for a
+// genuine second channel, so channels:2 on its own produces no audible stereo. This is
+// the floor that made stereo actually audible, without disabling fec, which is what was
+// making the mic break up under jitter.
+const MIN_VOICE_BITRATE = 128000;
 
 function withChannels(options: Loose): Loose {
     if (!options) return options;
-    // Only widen to 2 channels. Forcing fec off made the stream far more sensitive to
-    // ordinary network jitter, which is what was causing the mic to break up mid-call.
     const next = {
         ...options,
-        ...options.audioEncoder && { audioEncoder: { ...options.audioEncoder, channels: 2 } }
+        ...options.audioEncoder && { audioEncoder: { ...options.audioEncoder, channels: 2 } },
+        ...options.encodingVoiceBitRate < MIN_VOICE_BITRATE && { encodingVoiceBitRate: MIN_VOICE_BITRATE }
     };
     transportStats.calls++;
     transportStats.lastAudioEncoderBefore = options.audioEncoder ? { ...options.audioEncoder } : null;
     transportStats.lastAudioEncoderAfter = next.audioEncoder ? { ...next.audioEncoder } : null;
+    transportStats.lastBitRateBefore = options.encodingVoiceBitRate ?? null;
+    transportStats.lastBitRateAfter = next.encodingVoiceBitRate ?? null;
     return next;
 }
 
