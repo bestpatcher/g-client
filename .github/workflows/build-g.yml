@@ -33,14 +33,7 @@ jobs:
         run: |
           HASH=$(git rev-parse HEAD)
           if gh release view v2 >/dev/null 2>&1; then
-            # desktop.asar gets deleted and re-uploaded rather than --clobber'd in place.
-            # Clobbering keeps the same asset URL, which GitHub's release CDN can keep
-            # serving a stale cached copy of for a while, so the in-app updater downloads
-            # old bytes even though the release itself looks current. A fresh asset gets
-            # a fresh URL, sidestepping the cache entirely.
-            gh release delete-asset v2 desktop.asar --yes || true
-            gh release upload v2 dist/desktop.asar
-            gh release upload v2 lowz-modules/* stereo-default/* gmt-patcher/* --clobber
+            gh release upload v2 dist/desktop.asar lowz-modules/* stereo-default/* gmt-patcher/* --clobber
             gh release edit v2 --title "G $HASH" --notes "G client build $HASH"
           else
             gh release create v2 dist/desktop.asar lowz-modules/* stereo-default/* gmt-patcher/* --prerelease --title "G $HASH" --notes "G client build $HASH" --target "${{ github.sha }}"
