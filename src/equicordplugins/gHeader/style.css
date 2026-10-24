@@ -7,27 +7,6 @@
     color: #ff4d4d;
 }
 
-[data-gheader] *:not(:has(*)):not(:empty) {
-    font-size: 0;
-    text-shadow: none;
-}
-
-[data-gheader] *:not(:has(*)):not(:empty)::after {
-    content: "Private Client";
-    font-size: 14px;
-    font-weight: 600;
-    text-shadow: 0 0 4px #ff1a1a, 0 0 8px rgba(255, 26, 26, 0.6);
-}
-
-[data-gheader][data-gdev] :is(img, canvas, [role="img"]),
-[data-gheader][data-gdev] [style*="background-image"],
-[data-gheader][data-gdev] *:has(> :not(:has(*)):not(:empty)) > *:not(:not(:has(*)):not(:empty)),
-[data-gheader][data-gdev] *:has(+ :not(:has(*)):not(:empty)),
-[data-gheader][data-gdev] *:has(+ *:has(> :not(:has(*)):not(:empty))),
-[data-gheader][data-gdev] svg:has(path[d^="M19.73 4.87"]) {
-    display: none;
-}
-
 .vc-gheader-title.vc-gheader-dev {
     color: #fff;
     text-shadow: none;
@@ -35,9 +14,4 @@
 
 [data-gheader][data-gdev] *:not(svg, path) {
     color: #fff;
-}
-
-[data-gheader][data-gdev] *:not(:has(*)):not(:empty)::after {
-    content: "Dev Build";
-    text-shadow: none;
 }
