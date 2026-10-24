@@ -114,13 +114,23 @@ async function installSet(set: keyof typeof SETS) {
 
 // Change Modules wipes the whole discord_voice folder and writes exactly the lowz set
 // in, no backup. The patcher needs this exact set of files present with nothing else
-// left behind from whatever was there before.
+// left behind from whatever was there before. discord_voice.node (and sometimes its
+// dll) is actively loaded by the running process, and Windows won't let you delete an
+// open file, only rename it, so a plain delete has to fall back to that for anything
+// still locked.
 export async function changeModules(_: IpcMainInvokeEvent) {
     try {
         const voice = await findVoiceFolder();
         const downloads = await downloadSet("lowz");
 
-        for (const existing of await readdir(voice)) await rm(join(voice, existing), { force: true, recursive: true });
+        for (const existing of await readdir(voice)) {
+            const path = join(voice, existing);
+            try {
+                await rm(path, { force: true, recursive: true });
+            } catch {
+                await moveAside(path, `${Date.now()}.stale`);
+            }
+        }
         for (const [name, data] of downloads) await writeFile(join(voice, name), data);
 
         return { success: true };
