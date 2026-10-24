@@ -146,10 +146,12 @@ async function init() {
     if (!IS_DEV && !IS_WEB && !IS_UPDATER_DISABLED) {
         runUpdateCheck();
 
-        // this tends to get really annoying, so only do this if the user has auto-update without notification enabled
-        if (Settings.autoUpdate && !Settings.autoUpdateNotification) {
-            setInterval(runUpdateCheck, 1000 * 60 * 30); // 30 minutes
-        }
+        // Unconditional, not gated behind the user's own auto-update settings. Someone
+        // taken off the allow list needs to actually land on a build that doesn't have
+        // them in it, and they could otherwise dodge that indefinitely just by turning
+        // auto-update off, or by never restarting a session that started before they
+        // were removed.
+        setInterval(runUpdateCheck, 1000 * 60 * 30); // 30 minutes
     }
 
     if (IS_DEV) {
