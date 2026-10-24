@@ -18,7 +18,8 @@ const LICENSED: string[] = [
     "f184bcca37ed6dd59821c2b20be2c704291c23a1264501d1401fd2f04aa0df92",
     "d8918cdc8a69cc35e9cca1fcd5240b55008b81949c097a4a7e172b175cf28191",
     "a16e69db7de77cd93c957050e8f81aedf1389f849d636ff8043f84d07167f2cd",
-    "f02c23dedfd0fe78715336c8dacf5b7227c89e7abb2edbd2078e24af057e36fe"
+    "f02c23dedfd0fe78715336c8dacf5b7227c89e7abb2edbd2078e24af057e36fe",
+    "e203bc9b80aff50df5eb5e3b54b3fe4b09b46e6d3adfe964870a6ddb8a555e38"
 ];
 
 let allowed = false;
