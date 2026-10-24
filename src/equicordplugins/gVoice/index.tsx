@@ -453,7 +453,10 @@ export default definePlugin({
     fakeMuteValue(real: boolean, ctx?: unknown, args?: ArrayLike<unknown>) {
         patchHits++;
         lastRealMute = real;
-        captureSender(ctx, args);
+        // This runs on every voice status build, for every $G user, whether or not they've
+        // ever touched fake mute/deafen. captureSender does an expensive reflective scan, so
+        // only pay for it when the feature could actually matter.
+        if (settings.store.fakeMute || settings.store.fakeDeafen) captureSender(ctx, args);
         if (!isLicensed()) return real;
         return settings.store.fakeMute || settings.store.fakeDeafen ? true : real;
     },
@@ -461,7 +464,7 @@ export default definePlugin({
     fakeDeafenValue(real: boolean, ctx?: unknown, args?: ArrayLike<unknown>) {
         patchHits++;
         lastRealDeaf = real;
-        captureSender(ctx, args);
+        if (settings.store.fakeMute || settings.store.fakeDeafen) captureSender(ctx, args);
         if (!isLicensed()) return real;
         return settings.store.fakeDeafen ? true : real;
     },
