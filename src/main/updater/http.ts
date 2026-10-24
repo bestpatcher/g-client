@@ -18,6 +18,7 @@
 
 import { fetchBuffer, fetchJson } from "@main/utils/http";
 import { VENCORD_USER_AGENT } from "@shared/vencordUserAgent";
+import { createHash } from "crypto";
 import { writeFileSync } from "original-fs";
 import { join } from "path";
 
@@ -29,6 +30,7 @@ import { ASAR_FILE } from "./common";
 
 const API_BASE = `https://api.github.com/repos/${gitRemote}`;
 let PendingUpdate: string | null = null;
+let PendingDigest: string | null = null;
 
 async function githubGet<T = any>(endpoint: string) {
     return fetchJson<T>(API_BASE + endpoint, {
@@ -63,6 +65,7 @@ async function fetchUpdate() {
 
     const asset = data.assets.find(a => a.name === ASAR_FILE);
     PendingUpdate = asset.browser_download_url;
+    PendingDigest = asset.digest?.replace(/^sha256:/, "") ?? null;
 
     return true;
 }
@@ -71,9 +74,18 @@ async function applyUpdate() {
     if (!PendingUpdate) return true;
 
     const data = await fetchBuffer(PendingUpdate);
+    // GitHub's release asset CDN can briefly keep serving a stale cached copy of an
+    // asset's URL after a new upload, so a successful download here is not on its own
+    // proof the bytes are actually new. Check against the asset's own digest when GitHub
+    // provides one, rather than silently installing whatever came back.
+    if (PendingDigest && createHash("sha256").update(data).digest("hex") !== PendingDigest) {
+        return false;
+    }
+
     writeFileSync(join(__dirname, "..", ASAR_FILE), data, { flush: true });
 
     PendingUpdate = null;
+    PendingDigest = null;
 
     return true;
 }
