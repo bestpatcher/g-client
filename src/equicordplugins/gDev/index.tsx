@@ -81,11 +81,22 @@ export default definePlugin({
                 match: /(?<=getPendingCount\(\)\{)/,
                 replace: "const $gCount=$self.getFriendCountOverride();if($gCount!=null)return $gCount;"
             }
+        },
+        {
+            find: "getMessageRequestsCount(){",
+            replacement: {
+                match: /(?<=getMessageRequestsCount\(\)\{)/,
+                replace: "const $gCount=$self.getMessageCountOverride();if($gCount!=null)return $gCount;"
+            }
         }
     ],
 
     getFriendCountOverride() {
         return isAllowed() ? sanitizeCount(streamproofSettings.store.friendCount) : null;
+    },
+
+    getMessageCountOverride() {
+        return isAllowed() ? sanitizeCount(streamproofSettings.store.messageCount) : null;
     },
 
     flux: {
