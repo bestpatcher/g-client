@@ -1,10 +1,10 @@
 .vc-gheader-title {
-    color: #ff4d4d;
-    text-shadow: 0 0 4px #ff1a1a, 0 0 8px rgba(255, 26, 26, 0.6);
+    color: #c77dff;
+    text-shadow: 0 0 4px #9d4edd, 0 0 8px rgba(157, 78, 221, 0.6);
 }
 
 [data-gheader] *:not(svg, path) {
-    color: #ff4d4d;
+    color: #c77dff;
 }
 
 [data-gheader] *:not(:has(*)):not(:empty) {
@@ -16,7 +16,7 @@
     content: "Private Client";
     font-size: 14px;
     font-weight: 600;
-    text-shadow: 0 0 4px #ff1a1a, 0 0 8px rgba(255, 26, 26, 0.6);
+    text-shadow: 0 0 4px #9d4edd, 0 0 8px rgba(157, 78, 221, 0.6);
 }
 
 [data-gheader][data-gdev] :is(img, canvas, [role="img"]),

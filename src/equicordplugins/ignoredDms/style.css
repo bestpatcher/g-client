@@ -1,9 +1,21 @@
 .vc-pindms-section-container.vc-ignored-header {
-    color: #fff !important; /* Replaces the category color Pin DMs sets inline */
+    color: #c77dff !important; /* Replaces the category color Pin DMs sets inline */
     font-size: 14px;
     font-weight: 600;
+    text-shadow: 0 0 4px #9d4edd, 0 0 8px rgba(157, 78, 221, 0.6);
 }
 
 .vc-ignore-label {
+    color: #c77dff;
+    text-shadow: 0 0 4px #9d4edd, 0 0 8px rgba(157, 78, 221, 0.6);
+}
+
+[data-gdev] .vc-pindms-section-container.vc-ignored-header {
+    color: #fff !important;
+    text-shadow: none;
+}
+
+[data-gdev] .vc-ignore-label {
     color: #fff;
+    text-shadow: none;
 }
