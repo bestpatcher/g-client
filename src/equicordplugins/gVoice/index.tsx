@@ -8,20 +8,35 @@ import { addGlobalContextMenuPatch, GlobalContextMenuPatchCallback, removeGlobal
 import { definePluginSettings } from "@api/Settings";
 import { Button } from "@components/Button";
 import { addUserAreaButton, removeUserAreaButton, UserAreaButton, UserAreaButtonFactory, UserAreaRenderProps } from "@api/UserArea";
-import { openSauce, prefetchPatcher } from "@equicordplugins/lowzModules";
 import { EquicordDevs } from "@utils/constants";
 import { copyWithToast } from "@utils/discord";
-import { isLicensed } from "@utils/gAccess";
 import { Logger } from "@utils/Logger";
 import definePlugin, { OptionType } from "@utils/types";
 import { find } from "@webpack";
-import { MediaEngineStore, Menu, SelectedChannelStore, showToast } from "@webpack/common";
+import { FluxDispatcher, MediaEngineStore, Menu, SelectedChannelStore, showToast } from "@webpack/common";
 
 const logger = new Logger("GVoice");
 
 type Loose = Record<string, any>;
 
 const settings = definePluginSettings({
+    micMode: {
+        type: OptionType.SELECT,
+        description: "Microphone mode. Rejoin the voice channel after changing it. Stereo only helps if your microphone is stereo, and works best with noise suppression and echo cancellation turned off.",
+        options: [
+            { label: "Mono", value: "mono", default: true },
+            { label: "Stereo", value: "stereo" }
+        ],
+        onChange: () => reapplyTransportOptions()
+    },
+    micBoost: {
+        type: OptionType.SLIDER,
+        description: "Microphone input volume in percent. Goes past the normal 100 limit.",
+        markers: [100, 150, 200, 250, 300],
+        stickToMarkers: false,
+        default: 100,
+        onChange: (volume: number) => applyMicBoost(volume)
+    },
     fakeMute: {
         type: OptionType.BOOLEAN,
         description: "Show everyone that you are muted. You can still talk.",
@@ -47,6 +62,30 @@ const settings = definePluginSettings({
         )
     }
 });
+
+let boostResult = "not applied";
+
+// Discord clamps its own store to 100, so values above that go straight to the audio engine.
+function applyMicBoost(volume: number = settings.store.micBoost) {
+    if (volume <= 100) {
+        FluxDispatcher.dispatch({ type: "AUDIO_SET_INPUT_VOLUME", volume });
+        boostResult = "normal volume";
+        return;
+    }
+    const engine: Loose | undefined = (MediaEngineStore as Loose).getMediaEngine?.();
+    if (typeof engine?.setInputVolume !== "function") {
+        boostResult = "engine has no setInputVolume";
+        logger.warn(boostResult, engine && Object.getOwnPropertyNames(Object.getPrototypeOf(engine)).filter(n => /volume|gain/i.test(n)));
+        return;
+    }
+    try {
+        engine.setInputVolume(volume);
+        boostResult = `engine accepted ${volume}`;
+    } catch (e) {
+        boostResult = `engine threw: ${String(e)}`;
+        logger.error("Failed to boost mic", e);
+    }
+}
 
 // ---------- Fake mute / fake deafen ----------
 // The gateway voice state message (op 4) is rewritten on its way out, so other people see
@@ -172,17 +211,19 @@ function resendVoiceState() {
 }
 
 // ---------- Stereo microphone ----------
-// Voice connections are wrapped so the audio encoder always asks for 2 channels, unconditionally.
+// Voice connections are wrapped so the audio encoder always asks for 2 channels in stereo mode.
 
 const wrappedConnections = new Map<Loose, (options: Loose) => unknown>();
+const lastOptions = new WeakMap<Loose, Loose>();
+const transportLog: Loose[] = [];
 
 function withChannels(options: Loose): Loose {
-    if (!options) return options;
-    // Only widen to 2 channels. Forcing fec off made the stream far more sensitive to
-    // ordinary network jitter, which is what was causing the mic to break up mid-call.
+    if (settings.store.micMode !== "stereo" || !options) return options;
     return {
         ...options,
-        ...options.audioEncoder && { audioEncoder: { ...options.audioEncoder, channels: 2 } }
+        ...options.audioEncoder && { audioEncoder: { ...options.audioEncoder, channels: 2 } },
+        ...options.fec && { fec: false },
+        ...options.encodingVoiceBitRate < 512000 && { encodingVoiceBitRate: 512000 }
     };
 }
 
@@ -193,6 +234,14 @@ function wrapConnection(connection: Loose) {
     wrappedConnections.set(connection, orig);
 
     connection.setTransportOptions = function (this: Loose, options: Loose) {
+        lastOptions.set(connection, options);
+        transportLog.push({
+            keys: Object.keys(options ?? {}),
+            encoderKeys: options?.audioEncoder ? Object.keys(options.audioEncoder) : null,
+            channelsBefore: options?.audioEncoder?.channels,
+            stereoMode: settings.store.micMode === "stereo"
+        });
+        if (transportLog.length > 8) transportLog.shift();
         return orig.call(this, withChannels(options));
     };
     logger.info("Wrapped a voice connection for stereo support");
@@ -226,6 +275,13 @@ function hookVoiceConnectionClass() {
     };
 }
 
+function reapplyTransportOptions() {
+    for (const [connection] of wrappedConnections) {
+        const options = lastOptions.get(connection);
+        if (options) connection.setTransportOptions(options);
+    }
+}
+
 function buildReport() {
     const engine = (MediaEngineStore as Loose).getMediaEngine?.();
     const connections = engine?.connections;
@@ -234,11 +290,12 @@ function buildReport() {
     return JSON.stringify({
         plugin: "GVoice diagnostics v5",
         voiceClassFound: Boolean(voiceConnectionClass),
+        micBoost: { setting: settings.store.micBoost, storeVolume: MediaEngineStore.getInputVolume(), result: boostResult },
         sender: { found: Boolean(senderName), name: senderName, argCount: senderArgs.length },
         patchHits,
         lastRealMute,
         lastRealDeaf,
-        settings: { fakeMute: settings.store.fakeMute, fakeDeafen: settings.store.fakeDeafen },
+        settings: { micMode: settings.store.micMode, fakeMute: settings.store.fakeMute, fakeDeafen: settings.store.fakeDeafen },
         sendHookInstalled: Boolean(originalSend),
         socketCaptured: Boolean(gatewaySocket),
         gateway: stats,
@@ -252,7 +309,8 @@ function buildReport() {
             connectionMethods: first
                 ? Object.getOwnPropertyNames(Object.getPrototypeOf(first)).filter(n => /option|encoder|transport|audio|channel|stereo/i.test(n))
                 : null
-        }
+        },
+        transportLog
     }, null, 2);
 }
 
@@ -283,7 +341,7 @@ function HeadphonesIcon({ className, slashed }: { className?: string; slashed?: 
 function toggleFake(key: "fakeMute" | "fakeDeafen") {
     settings.store[key] = !settings.store[key];
     resendVoiceState();
-    notify(settings.store[key] ? "On" : "Off");
+    notify(`${key === "fakeMute" ? "Fake mute" : "Fake deafen"} ${settings.store[key] ? "on" : "off"}${senderName ? "" : ". Rejoin the voice channel to apply"}`);
 }
 
 function collectIds(nodes: unknown, ids: string[] = []) {
@@ -313,13 +371,6 @@ const voiceMenuPatch: GlobalContextMenuPatchCallback = (navId, children) => {
                 checked={settings.store[key]}
                 action={() => toggleFake(key)}
             />
-            {input && (
-                <Menu.MenuItem
-                    id="g-open-sauce"
-                    label="Open Da Sauce"
-                    action={openSauce}
-                />
-            )}
         </Menu.MenuGroup>
     );
 };
@@ -363,7 +414,7 @@ const fakeDeafenFactory: UserAreaButtonFactory = props => <FakeDeafenButton {...
 
 export default definePlugin({
     name: "GVoice",
-    description: "Always-on stereo microphone, plus fake mute and fake deafen buttons next to your voice controls.",
+    description: "Stereo or mono microphone, plus fake mute and fake deafen buttons next to your voice controls.",
     tags: ["Utility", "Voice"],
     authors: [EquicordDevs.nobody],
     dependencies: ["UserAreaAPI", "ContextMenuAPI"],
@@ -392,32 +443,34 @@ export default definePlugin({
     fakeMuteValue(real: boolean, ctx?: unknown, args?: ArrayLike<unknown>) {
         patchHits++;
         lastRealMute = real;
-        // This runs on every voice status build, for every $G user, whether or not they've
-        // ever touched fake mute/deafen. captureSender does an expensive reflective scan, so
-        // only pay for it when the feature could actually matter.
-        if (settings.store.fakeMute || settings.store.fakeDeafen) captureSender(ctx, args);
-        if (!isLicensed()) return real;
+        captureSender(ctx, args);
         return settings.store.fakeMute || settings.store.fakeDeafen ? true : real;
     },
 
     fakeDeafenValue(real: boolean, ctx?: unknown, args?: ArrayLike<unknown>) {
         patchHits++;
         lastRealDeaf = real;
-        if (settings.store.fakeMute || settings.store.fakeDeafen) captureSender(ctx, args);
-        if (!isLicensed()) return real;
+        captureSender(ctx, args);
         return settings.store.fakeDeafen ? true : real;
     },
 
     flux: {
         RTC_CONNECTION_STATE() {
             wrapAllConnections();
+            if (settings.store.micBoost > 100) applyMicBoost();
+        },
+        AUDIO_SET_INPUT_VOLUME() {
+            if (settings.store.micBoost > 100) applyMicBoost();
+        },
+        AUDIO_SET_INPUT_DEVICE() {
+            if (settings.store.micBoost > 100) applyMicBoost();
         }
     },
 
     start() {
         logger.info("GVoice started");
         installSendHook();
-        prefetchPatcher();
+        if (settings.store.micBoost > 100) applyMicBoost();
         addGlobalContextMenuPatch(voiceMenuPatch);
         addUserAreaButton("g-fake-mute", fakeMuteFactory, 90);
         addUserAreaButton("g-fake-deafen", fakeDeafenFactory, 91);

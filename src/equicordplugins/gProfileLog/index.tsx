@@ -10,11 +10,11 @@ import { get, set } from "@api/DataStore";
 import { debounce } from "@shared/debounce";
 import { EquicordDevs } from "@utils/constants";
 import { classNameFactory } from "@utils/css";
-import { isLicensed } from "@utils/gAccess";
-import ErrorBoundary from "@components/ErrorBoundary";
+import { isAllowed } from "@utils/gAccess";
+import { ModalCloseButton, ModalContent, ModalHeader, ModalRoot, openModal } from "@utils/modal";
 import definePlugin from "@utils/types";
-import { Message, RenderModalProps, User } from "@vencord/discord-types";
-import { IconUtils, Menu, Modal, moment, openModal, UserProfileStore, UserStore } from "@webpack/common";
+import { Message, User } from "@vencord/discord-types";
+import { IconUtils, Menu, moment, UserProfileStore, UserStore } from "@webpack/common";
 
 type Field = "name" | "username" | "avatar" | "banner" | "bio";
 type Snapshot = Partial<Record<Field, string | null>>;
@@ -48,69 +48,42 @@ function record(id: string, seenNow: Snapshot) {
 }
 
 function recordAuthor(a: Author) {
-    if (!isLicensed()) return;
+    if (!isAllowed()) return;
     const seenNow: Snapshot = { username: a.username, name: a.global_name, avatar: a.avatar };
     if (a.banner !== undefined) seenNow.banner = a.banner;
     record(a.id, seenNow);
 }
 
-function avatarUrl(id: string, hash: string) {
-    return `https://cdn.discordapp.com/avatars/${id}/${hash}.${hash.startsWith("a_") ? "gif" : "png"}?size=128`;
-}
-
 function Value({ id, field, value }: { id: string; field: Field; value: string | null; }) {
-    if (!value) return <span className={cl("none")} style={{ color: "#fff" }}>none</span>;
-    if (field === "avatar") return <img className={cl("avatar")} src={avatarUrl(id, value)} />;
+    if (!value) return <span className={cl("none")}>none</span>;
+    if (field === "avatar") return <img className={cl("avatar")} src={IconUtils.getUserAvatarURL({ id, avatar: value } as User, true, 128)} />;
     if (field === "banner") return <img className={cl("banner")} src={IconUtils.getUserBannerURL({ id, banner: value, canAnimate: true, size: 300 })} />;
-    return <span style={{ color: "#fff" }}>{value}</span>;
+    return <span>{value}</span>;
 }
 
-function pastValues(changes: Change[], field: Field) {
-    const seen: string[] = [];
-    for (const c of changes) {
-        if (c.field !== field) continue;
-        for (const v of [c.old, c.now]) {
-            if (v && !seen.includes(v)) seen.push(v);
-        }
-    }
-    return seen;
-}
-
-function HistoryModalContent({ user }: { user: User; }) {
+function HistoryModal({ user, props }: { user: User; props: object; }) {
     const changes = [...(history[user.id] ?? [])].reverse();
-    const pastUsernames = pastValues(changes, "username").filter(v => v !== user.username);
-    const pastNames = pastValues(changes, "name").filter(v => v !== (user.globalName ?? user.username));
 
     return (
-        <div className={cl("content")} style={{ color: "#fff" }}>
-            {(pastUsernames.length > 0 || pastNames.length > 0) && (
-                <div className={cl("known")}>
-                    {pastNames.length > 0 && <div style={{ color: "#fff" }}>Past display names: {pastNames.join(", ")}</div>}
-                    {pastUsernames.length > 0 && <div style={{ color: "#fff" }}>Past usernames: {pastUsernames.join(", ")}</div>}
-                </div>
-            )}
-            {changes.length === 0 && <div style={{ color: "#fff" }}>No changes saved for this person yet.</div>}
-            {changes.map(c => (
-                <div key={c.time + c.field} className={cl("row")}>
-                    <div className={cl("meta")} style={{ color: "#fff" }}>{FIELDS[c.field]} changed {moment(c.time).format("MMM D, YYYY h:mm A")}</div>
-                    <div className={cl("values")}>
-                        <Value id={user.id} field={c.field} value={c.old} />
-                        <span style={{ color: "#fff" }}>→</span>
-                        <Value id={user.id} field={c.field} value={c.now} />
+        <ModalRoot {...props}>
+            <ModalHeader>
+                <span className={cl("title")}>{user.globalName ?? user.username} history</span>
+                <ModalCloseButton onClick={(props as { onClose(): void; }).onClose} />
+            </ModalHeader>
+            <ModalContent className={cl("content")}>
+                {changes.length === 0 && <p>No changes saved for this person yet.</p>}
+                {changes.map(c => (
+                    <div key={c.time + c.field} className={cl("row")}>
+                        <div className={cl("meta")}>{FIELDS[c.field]} changed {moment(c.time).format("MMM D, YYYY h:mm A")}</div>
+                        <div className={cl("values")}>
+                            <Value id={user.id} field={c.field} value={c.old} />
+                            <span>→</span>
+                            <Value id={user.id} field={c.field} value={c.now} />
+                        </div>
                     </div>
-                </div>
-            ))}
-        </div>
-    );
-}
-
-function HistoryModal({ user, modalProps }: { user: User; modalProps: RenderModalProps; }) {
-    return (
-        <ErrorBoundary>
-            <Modal {...modalProps} size="md" title={`${user.globalName ?? user.username} history`}>
-                <HistoryModalContent user={user} />
-            </Modal>
-        </ErrorBoundary>
+                ))}
+            </ModalContent>
+        </ModalRoot>
     );
 }
 
@@ -128,10 +101,10 @@ export default definePlugin({
 
     contextMenus: {
         "user-context"(children, { user }: { user?: User; }) {
-            if (!user || !isLicensed()) return;
+            if (!user || !isAllowed()) return;
             children.push(
                 <Menu.MenuGroup>
-                    <Menu.MenuItem id="vc-gprofile" label="Profile History" action={() => openModal(modalProps => <HistoryModal user={user} modalProps={modalProps} />)} />
+                    <Menu.MenuItem id="vc-gprofile" label="Profile History" action={() => openModal(props => <HistoryModal user={user} props={props} />)} />
                 </Menu.MenuGroup>
             );
         }
@@ -148,7 +121,7 @@ export default definePlugin({
             new Map(messages.map(m => [m.author.id, m.author])).forEach(recordAuthor);
         },
         async USER_PROFILE_FETCH_SUCCESS({ user }: { user: Author; }) {
-            if (!isLicensed()) return;
+            if (!isAllowed()) return;
             await Promise.resolve();
             const profile = UserProfileStore.getUserProfile(user.id);
             if (profile) record(user.id, { bio: profile.bio, banner: profile.banner });

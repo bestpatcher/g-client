@@ -2,6 +2,12 @@
     padding-bottom: 16px;
 }
 
+.vc-gprofile-title {
+    flex: 1;
+    font-size: 18px;
+    font-weight: 600;
+}
+
 .vc-gprofile-row {
     margin-bottom: 16px;
 }
@@ -31,10 +37,4 @@
 
 .vc-gprofile-none {
     color: var(--text-muted);
-}
-
-.vc-gprofile-known {
-    margin-bottom: 16px;
-    padding-bottom: 12px;
-    border-bottom: 1px solid var(--background-modifier-accent);
 }

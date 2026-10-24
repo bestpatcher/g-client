@@ -1,13 +1,10 @@
 .vc-pindms-section-container.vc-ignored-header {
-    color: #ff4d4d !important; /* Replaces the category color Pin DMs sets inline */
-    text-shadow: 0 0 4px #ff1a1a, 0 0 8px rgba(255, 26, 26, 0.6);
+    color: #000 !important; /* Replaces the category color Pin DMs sets inline */
+    -webkit-text-stroke: 0.6px #fff;
+    paint-order: stroke fill;
+    text-shadow: 0 0 3px rgba(255, 255, 255, 0.5);
     font-size: 14px;
     font-weight: 600;
-}
-
-.vc-pindms-section-container.vc-ignored-header.vc-ignored-header-dev {
-    color: #fff !important;
-    text-shadow: none;
 }
 
 .vc-ignore-label {

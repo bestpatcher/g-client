@@ -5,7 +5,6 @@
  */
 
 import { Button } from "@components/Button";
-import ErrorBoundary from "@components/ErrorBoundary";
 import { Heading } from "@components/Heading";
 import { BackupRestoreIcon } from "@components/Icons";
 import { Paragraph } from "@components/Paragraph";
@@ -16,67 +15,16 @@ import { Margins } from "@utils/margins";
 import { removeFromArray } from "@utils/misc";
 import { relaunch } from "@utils/native";
 import definePlugin, { PluginNative } from "@utils/types";
-import { Modal, openModal, TextInput, useState } from "@webpack/common";
+import { useState } from "@webpack/common";
 
 const Native = VencordNative.pluginHelpers.LowzModules as PluginNative<typeof import("./native")>;
-
-function discordBranchLabel() {
-    switch (window.GLOBAL_ENV.RELEASE_CHANNEL) {
-        case "canary": return "Discord Canary";
-        case "ptb": return "Discord PTB";
-        default: return "Discord";
-    }
-}
-
-export function openSauce() {
-    openModal(modalProps => <KeyModal modalProps={modalProps} />);
-}
-
-export function prefetchPatcher() {
-    Native.prefetchPatcher();
-}
-
-function KeyModal({ modalProps }: { modalProps: object; }) {
-    const [key, setKey] = useState("");
-    const [busy, setBusy] = useState(false);
-    const [message, setMessage] = useState("");
-
-    async function submit(mode: "on" | "off") {
-        setBusy(true);
-        setMessage("");
-        const res = await Native.injectWithKey(key, mode);
-        setBusy(false);
-        setMessage(res.success ? `${discordBranchLabel()} ${mode === "on" ? "On" : "Off"}` : res.error ?? "Something went wrong.");
-    }
-
-    return (
-        <ErrorBoundary>
-            <Modal {...modalProps} size="sm" title="whats yo fuckin key">
-                <TextInput
-                    value={key}
-                    onChange={setKey}
-                    placeholder="License key"
-                    disabled={busy}
-                    onKeyDown={e => { if (e.key === "Enter" && key.trim() && !busy) submit("on"); }}
-                />
-                <div style={{ marginTop: "16px" }}>
-                    <Button disabled={busy || !key.trim()} onClick={() => submit("on")}>{busy ? "Injecting..." : "Inject"}</Button>
-                </div>
-                <div style={{ marginTop: "8px" }}>
-                    <Button variant="secondary" disabled={busy || !key.trim()} onClick={() => submit("off")}>turn dis bih off</Button>
-                </div>
-                {message && <div style={{ color: "#fff", marginTop: "12px" }}>{message}</div>}
-            </Modal>
-        </ErrorBoundary>
-    );
-}
 
 function LowzModulesTab() {
     const [busy, setBusy] = useState(false);
     const [message, setMessage] = useState("");
     const [done, setDone] = useState(false);
 
-    async function run(action: typeof Native.changeModules | typeof Native.restoreOriginalModules) {
+    async function run(action: typeof Native.changeModules | typeof Native.stereoDefault) {
         setBusy(true);
         const res = await action();
         setBusy(false);
@@ -88,12 +36,12 @@ function LowzModulesTab() {
         <SettingsTab>
             <Heading>Lowz Modules</Heading>
             <Paragraph className={Margins.bottom16}>
-                Change Modules installs the Lowz voice modules. Your original files are saved the first time you use it. If your mic starts breaking up partway through calls, try Restore Original to put Discord's own voice modules back.
+                Change Modules installs the Lowz voice modules. Stereo Default installs the stereo default voice modules. Your original files are saved the first time you use either button.
             </Paragraph>
             <div className={Margins.bottom16}>
                 <Button disabled={busy} onClick={() => run(Native.changeModules)}>Change Modules</Button>
                 {" "}
-                <Button variant="secondary" disabled={busy} onClick={() => run(Native.restoreOriginalModules)}>Restore Original</Button>
+                <Button variant="secondary" disabled={busy} onClick={() => run(Native.stereoDefault)}>Stereo Default</Button>
             </div>
             {message && <Paragraph className={Margins.bottom16}>{message}</Paragraph>}
             {done && <Button onClick={relaunch}>Restart Discord</Button>}

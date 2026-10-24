@@ -9,7 +9,6 @@ import "./styles.css";
 import { definePluginSettings } from "@api/Settings";
 import ErrorBoundary from "@components/ErrorBoundary";
 import { Devs } from "@utils/constants";
-import { isAllowed } from "@utils/gAccess";
 import { classes } from "@utils/misc";
 import definePlugin, { OptionType, StartAt } from "@utils/types";
 import { Channel } from "@vencord/discord-types";
@@ -314,7 +313,7 @@ export default definePlugin({
                 }}
             >
                 <h2
-                    className={classes(headerClasses.privateChannelsHeaderContainer, "vc-pindms-section-container", category.collapsed ? "vc-pindms-collapsed" : "", category.id === "g-ignored" && "vc-ignored-header", category.id === "g-ignored" && isAllowed() && "vc-ignored-header-dev")}
+                    className={classes(headerClasses.privateChannelsHeaderContainer, "vc-pindms-section-container", category.collapsed ? "vc-pindms-collapsed" : "", category.id === "g-ignored" && "vc-ignored-header")}
                     style={{ color: `#${category.color.toString(16).padStart(6, "0")}` }}
                 >
                     <span className={headerClasses.headerText}>

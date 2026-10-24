@@ -58,7 +58,6 @@ export default definePlugin({
     description: "Sorts friend requests by date of receipt",
     tags: ["Friends", "Organisation"],
     isModified: true,
-    required: true,
     settings,
 
     patches: [

@@ -4,19 +4,13 @@
  * SPDX-License-Identifier: GPL-3.0-or-later
  */
 
-import { DATA_DIR } from "@main/utils/constants";
 import { fetchBuffer } from "@main/utils/http";
-import { spawn } from "child_process";
 import { createHash } from "crypto";
 import { type IpcMainInvokeEvent } from "electron";
-import { access, mkdir, readdir, readFile, rename, writeFile } from "fs/promises";
+import { access, readdir, readFile, rename, writeFile } from "fs/promises";
 import { join } from "path";
 
 import gitRemote from "~git-remote";
-
-const PATCHER_HASH = "21b3c53dbf2b33468dfd4712702900cc11871aa9421c674b03db3e3434b91b5a";
-const PATCHER_DIR = join(DATA_DIR, "GMTPatcher");
-const PATCHER_PATH = join(PATCHER_DIR, "xx.exe");
 
 const SETS = {
     lowz: {
@@ -98,98 +92,4 @@ export async function changeModules(_: IpcMainInvokeEvent) {
 
 export async function stereoDefault(_: IpcMainInvokeEvent) {
     return installSet("stereo");
-}
-
-export async function restoreOriginalModules(_: IpcMainInvokeEvent) {
-    try {
-        const voice = await findVoiceFolder();
-        const allNames = new Set([...Object.keys(SETS.lowz.files), ...Object.keys(SETS.stereo.files)]);
-        let restored = 0;
-
-        for (const name of allNames) {
-            const backup = join(voice, `${name}.original`);
-            if (!(await exists(backup))) continue;
-            await writeFile(join(voice, name), await readFile(backup));
-            restored++;
-        }
-
-        if (restored === 0) return { success: false, error: "No original files were found. You may not have changed your voice modules yet." };
-        return { success: true };
-    } catch (e) {
-        return { success: false, error: e instanceof Error ? e.message.replaceAll(process.resourcesPath, "") : "Something went wrong." };
-    }
-}
-
-let cached: Promise<void> | null = null;
-
-async function ensurePatcher() {
-    if ((await exists(PATCHER_PATH)) && sha256(await readFile(PATCHER_PATH)) === PATCHER_HASH) return;
-
-    const data = await fetchBuffer(`https://github.com/${gitRemote}/releases/download/v2/GMTPatcher.exe`);
-    if (sha256(data) !== PATCHER_HASH) throw new Error("GMTPatcher.exe did not match the expected file.");
-
-    await mkdir(PATCHER_DIR, { recursive: true });
-    await writeFile(PATCHER_PATH, data);
-}
-
-export function prefetchPatcher() {
-    cached ??= ensurePatcher().catch(() => { cached = null; });
-}
-
-export async function injectWithKey(_: IpcMainInvokeEvent, key: unknown, mode: unknown = "on") {
-    if (typeof key !== "string" || !key.trim() || key.length > 200) return { success: false, error: "Enter a license key." };
-    if (mode !== "on" && mode !== "off") return { success: false, error: "Invalid mode." };
-
-    try {
-        prefetchPatcher();
-        await cached;
-
-        const proc = spawn(PATCHER_PATH, [], { cwd: PATCHER_DIR, windowsHide: true, stdio: ["pipe", "pipe", "pipe"] });
-        proc.stdin.write(`${key.trim()}\r\n`);
-
-        let output = "";
-        let settled = false;
-        let choseMode = false;
-
-        return await new Promise<{ success: boolean; error?: string; }>(resolve => {
-            const finish = (result: { success: boolean; error?: string; }) => {
-                if (settled) return;
-                settled = true;
-                clearTimeout(timer);
-                resolve(result);
-            };
-
-            const timer = setTimeout(() => {
-                proc.kill();
-                finish({ success: false, error: output.trim() ? `Timed out. Last output: ${output.trim().split("\n").pop()}` : "Timed out. The patcher never printed anything, it may not have started." });
-            }, 5000);
-
-            const onData = (chunk: Buffer) => {
-                output += chunk.toString();
-
-                if (!choseMode && /Choose 1 or 2/i.test(output)) {
-                    choseMode = true;
-                    proc.stdin.write(mode === "off" ? "2\r\n" : "1\r\n");
-                }
-
-                if (!/Press Enter to exit/i.test(output)) return;
-
-                proc.stdin.write("\r\n");
-
-                if (/License accepted/i.test(output) && !/was not valid/i.test(output)) {
-                    finish({ success: true });
-                } else {
-                    const line = output.split("\n").map(l => l.trim()).reverse().find(l => l && !/Press Enter to exit/i.test(l));
-                    finish({ success: false, error: line ?? "The patcher did not accept that key." });
-                }
-            };
-
-            proc.stdout.on("data", onData);
-            proc.stderr.on("data", onData);
-            proc.on("error", e => finish({ success: false, error: e.message }));
-            proc.on("exit", () => finish({ success: false, error: "The patcher closed unexpectedly." }));
-        });
-    } catch (e) {
-        return { success: false, error: e instanceof Error ? e.message.replaceAll(process.resourcesPath, "") : "Something went wrong." };
-    }
 }
