@@ -223,7 +223,6 @@ function withChannels(options: Loose): Loose {
     return {
         ...options,
         ...options.audioEncoder && { audioEncoder: { ...options.audioEncoder, channels: 2 } },
-        ...options.fec && { fec: false },
         ...options.encodingVoiceBitRate < 512000 && { encodingVoiceBitRate: 512000 }
     };
 }
