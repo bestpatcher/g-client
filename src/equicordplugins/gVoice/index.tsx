@@ -175,59 +175,27 @@ function resendVoiceState() {
 // Voice connections are wrapped so the audio encoder always asks for 2 channels, unconditionally.
 
 const wrappedConnections = new Map<Loose, (options: Loose) => unknown>();
-const lastOptions = new WeakMap<Loose, Loose>();
-
-// Visibility into whether the mutation is actually reaching the native call, since the
-// JS-level logic can't be trusted to be working just because it runs without error.
-const transportStats = {
-    calls: 0,
-    lastAudioEncoderBefore: null as Loose | null,
-    lastAudioEncoderAfter: null as Loose | null,
-    lastBitRateBefore: null as number | null,
-    lastBitRateAfter: null as number | null
-};
-
-// Opus at Discord's normal voice bitrate (64kbps) doesn't carry enough headroom for a
-// genuine second channel, so channels:2 on its own produces no audible stereo. 128kbps
-// still wasn't enough, so this matches the bitrate the original plugin forced.
-const MIN_VOICE_BITRATE = 512000;
 
 function withChannels(options: Loose): Loose {
     if (!options) return options;
-    const next = {
+    // Only widen to 2 channels. Forcing fec off made the stream far more sensitive to
+    // ordinary network jitter, which is what was causing the mic to break up mid-call.
+    return {
         ...options,
-        ...options.audioEncoder && { audioEncoder: { ...options.audioEncoder, channels: 2 } },
-        ...options.encodingVoiceBitRate < MIN_VOICE_BITRATE && { encodingVoiceBitRate: MIN_VOICE_BITRATE }
+        ...options.audioEncoder && { audioEncoder: { ...options.audioEncoder, channels: 2 } }
     };
-    transportStats.calls++;
-    transportStats.lastAudioEncoderBefore = options.audioEncoder ? { ...options.audioEncoder } : null;
-    transportStats.lastAudioEncoderAfter = next.audioEncoder ? { ...next.audioEncoder } : null;
-    transportStats.lastBitRateBefore = options.encodingVoiceBitRate ?? null;
-    transportStats.lastBitRateAfter = next.encodingVoiceBitRate ?? null;
-    return next;
 }
 
 function wrapConnection(connection: Loose) {
-    if (!connection || typeof connection.setTransportOptions !== "function") return;
+    if (!connection || wrappedConnections.has(connection) || typeof connection.setTransportOptions !== "function") return;
 
-    if (!wrappedConnections.has(connection)) {
-        const orig = connection.setTransportOptions as (options: Loose) => unknown;
-        wrappedConnections.set(connection, orig);
+    const orig = connection.setTransportOptions as (options: Loose) => unknown;
+    wrappedConnections.set(connection, orig);
 
-        connection.setTransportOptions = function (this: Loose, options: Loose) {
-            lastOptions.set(connection, options);
-            return orig.call(this, withChannels(options));
-        };
-        logger.info("Wrapped a voice connection for stereo support");
-    }
-
-    // The encoder can get set up more than once during a call (reconnects, quality
-    // changes), and if it was ever set up mono before this wrap was in place, a later
-    // call might not retroactively fix it. Re-send the last real options we saw, with
-    // the channel count forced, every time we get a chance to touch this connection.
-    const orig = wrappedConnections.get(connection);
-    const cached = lastOptions.get(connection);
-    if (orig && cached) orig.call(connection, withChannels(cached));
+    connection.setTransportOptions = function (this: Loose, options: Loose) {
+        return orig.call(this, withChannels(options));
+    };
+    logger.info("Wrapped a voice connection for stereo support");
 }
 
 function wrapAllConnections() {
@@ -283,14 +251,7 @@ function buildReport() {
             connectionKeys: first ? Object.keys(first).slice(0, 50) : null,
             connectionMethods: first
                 ? Object.getOwnPropertyNames(Object.getPrototypeOf(first)).filter(n => /option|encoder|transport|audio|channel|stereo/i.test(n))
-                : null,
-            voiceBitrate: first?.voiceBitrate ?? null,
-            inputMode: first?.inputMode ?? null,
-            nativeConnPresent: Boolean(first?.conn),
-            nativeConnMethods: first?.conn
-                ? Object.getOwnPropertyNames(Object.getPrototypeOf(first.conn)).filter(n => /option|encoder|transport|audio|channel|stereo/i.test(n))
-                : null,
-            transport: transportStats
+                : null
         }
     }, null, 2);
 }
