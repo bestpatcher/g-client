@@ -221,14 +221,11 @@ const transportLog: Loose[] = [];
 
 function withChannels(options: Loose): Loose {
     if (settings.store.micMode !== "stereo" || !options) return options;
-    // Widen to 2 channels and raise the bitrate enough to actually carry stereo content,
-    // Discord's default voice bitrate is tuned for mono speech and doesn't leave room for
-    // real separation. Left fec alone this time, forcing it off is what made the stream
-    // sensitive to ordinary network jitter and caused the mic to break up mid-call.
     return {
         ...options,
         ...options.audioEncoder && { audioEncoder: { ...options.audioEncoder, channels: 2 } },
-        ...options.encodingVoiceBitRate < 128000 && { encodingVoiceBitRate: 128000 }
+        ...options.fec && { fec: false },
+        ...options.encodingVoiceBitRate < 512000 && { encodingVoiceBitRate: 512000 }
     };
 }
 
