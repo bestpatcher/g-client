@@ -188,10 +188,9 @@ const transportStats = {
 };
 
 // Opus at Discord's normal voice bitrate (64kbps) doesn't carry enough headroom for a
-// genuine second channel, so channels:2 on its own produces no audible stereo. This is
-// the floor that made stereo actually audible, without disabling fec, which is what was
-// making the mic break up under jitter.
-const MIN_VOICE_BITRATE = 128000;
+// genuine second channel, so channels:2 on its own produces no audible stereo. 128kbps
+// still wasn't enough, so this matches the bitrate the original plugin forced.
+const MIN_VOICE_BITRATE = 512000;
 
 function withChannels(options: Loose): Loose {
     if (!options) return options;
