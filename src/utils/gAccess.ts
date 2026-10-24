@@ -7,7 +7,6 @@
 import { useEffect, useState, UserStore } from "@webpack/common";
 
 const ALLOWED = [
-    "d8a7056cef8461b0a4caeeb69f7bc67957d81b6b106bc797850bdefd82c5ea74",
     "69b26ec34e3114f66916832ff3d83160ed9a9e95d131afbad05e0aa29bbec6d4"
 ];
 
