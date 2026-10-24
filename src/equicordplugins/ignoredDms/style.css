@@ -5,6 +5,11 @@
     font-weight: 600;
 }
 
+.vc-pindms-section-container.vc-ignored-header.vc-ignored-header-dev {
+    color: #fff !important;
+    text-shadow: none;
+}
+
 .vc-ignore-label {
     color: #000;
     -webkit-text-stroke: 0.6px #fff;
