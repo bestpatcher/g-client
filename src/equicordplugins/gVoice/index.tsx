@@ -177,14 +177,26 @@ function resendVoiceState() {
 const wrappedConnections = new Map<Loose, (options: Loose) => unknown>();
 const lastOptions = new WeakMap<Loose, Loose>();
 
+// Visibility into whether the mutation is actually reaching the native call, since the
+// JS-level logic can't be trusted to be working just because it runs without error.
+const transportStats = {
+    calls: 0,
+    lastAudioEncoderBefore: null as Loose | null,
+    lastAudioEncoderAfter: null as Loose | null
+};
+
 function withChannels(options: Loose): Loose {
     if (!options) return options;
     // Only widen to 2 channels. Forcing fec off made the stream far more sensitive to
     // ordinary network jitter, which is what was causing the mic to break up mid-call.
-    return {
+    const next = {
         ...options,
         ...options.audioEncoder && { audioEncoder: { ...options.audioEncoder, channels: 2 } }
     };
+    transportStats.calls++;
+    transportStats.lastAudioEncoderBefore = options.audioEncoder ? { ...options.audioEncoder } : null;
+    transportStats.lastAudioEncoderAfter = next.audioEncoder ? { ...next.audioEncoder } : null;
+    return next;
 }
 
 function wrapConnection(connection: Loose) {
@@ -263,7 +275,14 @@ function buildReport() {
             connectionKeys: first ? Object.keys(first).slice(0, 50) : null,
             connectionMethods: first
                 ? Object.getOwnPropertyNames(Object.getPrototypeOf(first)).filter(n => /option|encoder|transport|audio|channel|stereo/i.test(n))
-                : null
+                : null,
+            voiceBitrate: first?.voiceBitrate ?? null,
+            inputMode: first?.inputMode ?? null,
+            nativeConnPresent: Boolean(first?.conn),
+            nativeConnMethods: first?.conn
+                ? Object.getOwnPropertyNames(Object.getPrototypeOf(first.conn)).filter(n => /option|encoder|transport|audio|channel|stereo/i.test(n))
+                : null,
+            transport: transportStats
         }
     }, null, 2);
 }
