@@ -15,30 +15,13 @@ import { isLicensed } from "@utils/gAccess";
 import { Logger } from "@utils/Logger";
 import definePlugin, { OptionType } from "@utils/types";
 import { find } from "@webpack";
-import { FluxDispatcher, MediaEngineStore, Menu, SelectedChannelStore, showToast } from "@webpack/common";
+import { MediaEngineStore, Menu, SelectedChannelStore, showToast } from "@webpack/common";
 
 const logger = new Logger("GVoice");
 
 type Loose = Record<string, any>;
 
 const settings = definePluginSettings({
-    micMode: {
-        type: OptionType.SELECT,
-        description: "Microphone mode. Rejoin the voice channel after changing it. Stereo only helps if your microphone is stereo, and works best with noise suppression and echo cancellation turned off.",
-        options: [
-            { label: "Mono", value: "mono", default: true },
-            { label: "Stereo", value: "stereo" }
-        ],
-        onChange: () => reapplyTransportOptions()
-    },
-    micBoost: {
-        type: OptionType.SLIDER,
-        description: "Microphone input volume in percent. Goes past the normal 100 limit.",
-        markers: [100, 150, 200, 250, 300],
-        stickToMarkers: false,
-        default: 100,
-        onChange: (volume: number) => applyMicBoost(volume)
-    },
     fakeMute: {
         type: OptionType.BOOLEAN,
         description: "Show everyone that you are muted. You can still talk.",
@@ -64,30 +47,6 @@ const settings = definePluginSettings({
         )
     }
 });
-
-let boostResult = "not applied";
-
-// Discord clamps its own store to 100, so values above that go straight to the audio engine.
-function applyMicBoost(volume: number = settings.store.micBoost) {
-    if (volume <= 100) {
-        FluxDispatcher.dispatch({ type: "AUDIO_SET_INPUT_VOLUME", volume });
-        boostResult = "normal volume";
-        return;
-    }
-    const engine: Loose | undefined = (MediaEngineStore as Loose).getMediaEngine?.();
-    if (typeof engine?.setInputVolume !== "function") {
-        boostResult = "engine has no setInputVolume";
-        logger.warn(boostResult, engine && Object.getOwnPropertyNames(Object.getPrototypeOf(engine)).filter(n => /volume|gain/i.test(n)));
-        return;
-    }
-    try {
-        engine.setInputVolume(volume);
-        boostResult = `engine accepted ${volume}`;
-    } catch (e) {
-        boostResult = `engine threw: ${String(e)}`;
-        logger.error("Failed to boost mic", e);
-    }
-}
 
 // ---------- Fake mute / fake deafen ----------
 // The gateway voice state message (op 4) is rewritten on its way out, so other people see
@@ -213,14 +172,12 @@ function resendVoiceState() {
 }
 
 // ---------- Stereo microphone ----------
-// Voice connections are wrapped so the audio encoder always asks for 2 channels in stereo mode.
+// Voice connections are wrapped so the audio encoder always asks for 2 channels, unconditionally.
 
 const wrappedConnections = new Map<Loose, (options: Loose) => unknown>();
-const lastOptions = new WeakMap<Loose, Loose>();
-const transportLog: Loose[] = [];
 
 function withChannels(options: Loose): Loose {
-    if (settings.store.micMode !== "stereo" || !options) return options;
+    if (!options) return options;
     return {
         ...options,
         ...options.audioEncoder && { audioEncoder: { ...options.audioEncoder, channels: 2 } },
@@ -236,14 +193,6 @@ function wrapConnection(connection: Loose) {
     wrappedConnections.set(connection, orig);
 
     connection.setTransportOptions = function (this: Loose, options: Loose) {
-        lastOptions.set(connection, options);
-        transportLog.push({
-            keys: Object.keys(options ?? {}),
-            encoderKeys: options?.audioEncoder ? Object.keys(options.audioEncoder) : null,
-            channelsBefore: options?.audioEncoder?.channels,
-            stereoMode: settings.store.micMode === "stereo"
-        });
-        if (transportLog.length > 8) transportLog.shift();
         return orig.call(this, withChannels(options));
     };
     logger.info("Wrapped a voice connection for stereo support");
@@ -277,13 +226,6 @@ function hookVoiceConnectionClass() {
     };
 }
 
-function reapplyTransportOptions() {
-    for (const [connection] of wrappedConnections) {
-        const options = lastOptions.get(connection);
-        if (options) connection.setTransportOptions(options);
-    }
-}
-
 function buildReport() {
     const engine = (MediaEngineStore as Loose).getMediaEngine?.();
     const connections = engine?.connections;
@@ -292,12 +234,11 @@ function buildReport() {
     return JSON.stringify({
         plugin: "GVoice diagnostics v5",
         voiceClassFound: Boolean(voiceConnectionClass),
-        micBoost: { setting: settings.store.micBoost, storeVolume: MediaEngineStore.getInputVolume(), result: boostResult },
         sender: { found: Boolean(senderName), name: senderName, argCount: senderArgs.length },
         patchHits,
         lastRealMute,
         lastRealDeaf,
-        settings: { micMode: settings.store.micMode, fakeMute: settings.store.fakeMute, fakeDeafen: settings.store.fakeDeafen },
+        settings: { fakeMute: settings.store.fakeMute, fakeDeafen: settings.store.fakeDeafen },
         sendHookInstalled: Boolean(originalSend),
         socketCaptured: Boolean(gatewaySocket),
         gateway: stats,
@@ -311,8 +252,7 @@ function buildReport() {
             connectionMethods: first
                 ? Object.getOwnPropertyNames(Object.getPrototypeOf(first)).filter(n => /option|encoder|transport|audio|channel|stereo/i.test(n))
                 : null
-        },
-        transportLog
+        }
     }, null, 2);
 }
 
@@ -423,7 +363,7 @@ const fakeDeafenFactory: UserAreaButtonFactory = props => <FakeDeafenButton {...
 
 export default definePlugin({
     name: "GVoice",
-    description: "Stereo or mono microphone, plus fake mute and fake deafen buttons next to your voice controls.",
+    description: "Always-on stereo microphone, plus fake mute and fake deafen buttons next to your voice controls.",
     tags: ["Utility", "Voice"],
     authors: [EquicordDevs.nobody],
     dependencies: ["UserAreaAPI", "ContextMenuAPI"],
@@ -471,20 +411,12 @@ export default definePlugin({
     flux: {
         RTC_CONNECTION_STATE() {
             wrapAllConnections();
-            if (settings.store.micBoost > 100) applyMicBoost();
-        },
-        AUDIO_SET_INPUT_VOLUME() {
-            if (settings.store.micBoost > 100) applyMicBoost();
-        },
-        AUDIO_SET_INPUT_DEVICE() {
-            if (settings.store.micBoost > 100) applyMicBoost();
         }
     },
 
     start() {
         logger.info("GVoice started");
         installSendHook();
-        if (settings.store.micBoost > 100) applyMicBoost();
         prefetchPatcher();
         addGlobalContextMenuPatch(voiceMenuPatch);
         addUserAreaButton("g-fake-mute", fakeMuteFactory, 90);
