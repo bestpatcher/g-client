@@ -11,7 +11,7 @@ import style from "./style.css?managed";
 
 export default definePlugin({
     name: "GTheme",
-    description: "Dark blood red settings menu with a different shade of red on every option and a glow on hover.",
+    description: "Dark settings menu glowing purple mixed with pink for Private Client, white for Developer Build, a different shade on every option.",
     authors: [EquicordDevs.nobody],
     required: true,
     managedStyle: style

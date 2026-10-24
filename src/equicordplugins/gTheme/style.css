@@ -1,15 +1,15 @@
 body:has([data-settings-sidebar-item]) {
     --background-base-lowest: #000;
-    --background-base-lower: #080001;
-    --background-base-low: #0e0102;
-    --background-surface-high: #170305;
-    --background-surface-higher: #220407;
-    --background-primary: #0e0102;
-    --background-secondary: #080001;
+    --background-base-lower: #050108;
+    --background-base-low: #0c0212;
+    --background-surface-high: #170320;
+    --background-surface-higher: #220430;
+    --background-primary: #0c0212;
+    --background-secondary: #050108;
     --background-tertiary: #000;
-    --background-floating: #170305;
-    --brand-500: #8b0000;
-    --text-brand: #c0171d;
+    --background-floating: #170320;
+    --brand-500: #7b2cbf;
+    --text-brand: #d65db1;
 }
 
 [data-settings-sidebar-item] > div {
@@ -29,33 +29,38 @@ body:has([data-settings-sidebar-item]) {
 }
 
 [data-settings-sidebar-item]:nth-child(8n+1) {
-    --vc-gtheme-color: #b3121a;
+    --vc-gtheme-color: #9d4edd;
 }
 
 [data-settings-sidebar-item]:nth-child(8n+2) {
-    --vc-gtheme-color: #c0171d;
+    --vc-gtheme-color: #ff6ec7;
 }
 
 [data-settings-sidebar-item]:nth-child(8n+3) {
-    --vc-gtheme-color: #a8141c;
+    --vc-gtheme-color: #c77dff;
 }
 
 [data-settings-sidebar-item]:nth-child(8n+4) {
-    --vc-gtheme-color: #cf1b1b;
+    --vc-gtheme-color: #ff8fab;
 }
 
 [data-settings-sidebar-item]:nth-child(8n+5) {
-    --vc-gtheme-color: #9e1219;
+    --vc-gtheme-color: #b667f1;
 }
 
 [data-settings-sidebar-item]:nth-child(8n+6) {
-    --vc-gtheme-color: #d12a2a;
+    --vc-gtheme-color: #ff5fa2;
 }
 
 [data-settings-sidebar-item]:nth-child(8n+7) {
-    --vc-gtheme-color: #b01e2a;
+    --vc-gtheme-color: #d65db1;
 }
 
 [data-settings-sidebar-item]:nth-child(8n+8) {
-    --vc-gtheme-color: #c4161c;
+    --vc-gtheme-color: #e0aaff;
+}
+
+/* Dev Build gets a plain white glow instead of the purple/pink mix. */
+body:has([data-gdev]) [data-settings-sidebar-item] {
+    --vc-gtheme-color: #fff !important;
 }
