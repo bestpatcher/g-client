@@ -42,6 +42,6 @@ export default definePlugin({
 
     title: ErrorBoundary.wrap(() => {
         const dev = useAccess();
-        return <span className={dev ? "vc-gheader-title vc-gheader-dev" : "vc-gheader-title"}>{dev ? "Dev Build" : "Private Client"}</span>;
+        return <span className={dev ? "vc-gheader-title vc-gheader-dev" : "vc-gheader-title"}>{dev ? "Developer Build" : "Private Client"}</span>;
     }, { noop: true })
 });

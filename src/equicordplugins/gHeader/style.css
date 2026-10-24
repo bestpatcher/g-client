@@ -29,19 +29,15 @@
 }
 
 .vc-gheader-title.vc-gheader-dev {
-    color: #000;
-    -webkit-text-stroke: 0.6px #fff;
-    paint-order: stroke fill;
-    text-shadow: 0 0 3px rgba(255, 255, 255, 0.5);
+    color: #fff;
+    text-shadow: none;
 }
 
 [data-gheader][data-gdev] *:not(svg, path) {
-    color: #000;
-    -webkit-text-stroke: 0.6px #fff;
-    paint-order: stroke fill;
+    color: #fff;
 }
 
 [data-gheader][data-gdev] *:not(:has(*)):not(:empty)::after {
-    content: "Dev Build";
-    text-shadow: 0 0 3px rgba(255, 255, 255, 0.5);
+    content: "Developer Build";
+    text-shadow: none;
 }

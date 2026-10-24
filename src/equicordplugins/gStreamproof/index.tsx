@@ -6,19 +6,25 @@
 
 import { definePluginSettings } from "@api/Settings";
 import ErrorBoundary from "@components/ErrorBoundary";
+import { debounce } from "@shared/debounce";
 import { EquicordDevs } from "@utils/constants";
 import { isAllowed } from "@utils/gAccess";
 import definePlugin, { OptionType } from "@utils/types";
-import { ContextMenuApi, Menu, showToast } from "@webpack/common";
+import { ContextMenuApi, FriendsStore, Menu, RelationshipStore, showToast } from "@webpack/common";
 
 import type * as NativeModule from "./native";
 
 const Native = VencordNative.pluginHelpers.GStreamproof as PluginNative<typeof NativeModule>;
 
-let accountPanelRef: React.RefObject<HTMLDivElement> | null = null;
-
-const settings = definePluginSettings({
-    enabled: { type: OptionType.CUSTOM, default: false }
+export const settings = definePluginSettings({
+    enabled: { type: OptionType.CUSTOM, default: false },
+    // The real count still lives in RelationshipStore/FriendsStore; this only overrides what
+    // they report. emitChange() nudges anything already subscribed to those stores (like the
+    // friends list header, which only recomputes on an actual store change) to re-read it now.
+    friendCount: {
+        type: OptionType.CUSTOM, default: null as number | null,
+        onChange: () => { RelationshipStore.emitChange(); FriendsStore.emitChange(); }
+    }
 });
 
 async function set(enabled: boolean) {
@@ -31,9 +37,10 @@ async function set(enabled: boolean) {
     showToast({ text: enabled ? "Streamproof on, hidden from screen shares and recordings." : "Streamproof off.", variant: "success" });
 }
 
-const AccountPanelMenu = ErrorBoundary.wrap(() => {
-    const { enabled } = settings.use(["enabled"]);
+const ShieldMenu = ErrorBoundary.wrap(() => {
+    const { enabled, friendCount } = settings.use(["enabled", "friendCount"]);
     if (!isAllowed()) return null;
+    const friendCountValue = friendCount ?? 0;
 
     return (
         <Menu.Menu navId="vc-gstreamproof" onClose={ContextMenuApi.closeContextMenu}>
@@ -43,13 +50,33 @@ const AccountPanelMenu = ErrorBoundary.wrap(() => {
                 checked={enabled}
                 action={() => set(!enabled)}
             />
+            <Menu.MenuControlItem
+                id="vc-gstreamproof-friendcount"
+                label={`Friend requests: ${friendCountValue}`}
+                control={(props, ref) => (
+                    <Menu.MenuSliderControl
+                        ref={ref}
+                        {...props}
+                        minValue={0}
+                        maxValue={5000}
+                        value={friendCountValue}
+                        onChange={debounce((v: number) => { settings.store.friendCount = Math.round(v); }, 50)}
+                        renderValue={(v: number) => String(Math.round(v))}
+                    />
+                )}
+            />
+            <Menu.MenuItem
+                id="vc-gstreamproof-friendcount-reset"
+                label="Reset friend count"
+                action={() => { settings.store.friendCount = null; }}
+            />
         </Menu.Menu>
     );
 }, { noop: true });
 
 export default definePlugin({
     name: "GStreamproof",
-    description: "Right click your account panel to hide Discord from screen shares and recordings while still seeing it yourself.",
+    description: "Click the shield to hide Discord from screen shares and recordings while still seeing it yourself, and to fake the friend request count.",
     authors: [EquicordDevs.nobody],
     required: true,
     hidden: true,
@@ -63,23 +90,8 @@ export default definePlugin({
         Native.toggle(false);
     },
 
-    patches: [
-        {
-            find: "handleOpenSettingsContextMenu=",
-            replacement: {
-                match: /ref:(\i),style:\i(?=.{0,250}#{intl::USER_PROFILE_ACCOUNT_POPOUT_BUTTON_A11Y_LABEL})/,
-                replace: "$&,onContextMenu:($self.grabRef($1),$self.openMenu)"
-            }
-        }
-    ],
-
-    grabRef(ref: React.RefObject<HTMLDivElement>) {
-        accountPanelRef = ref;
-        return ref;
-    },
-
-    openMenu(event: React.UIEvent) {
+    openMenu(event: React.MouseEvent) {
         if (!isAllowed()) return;
-        ContextMenuApi.openContextMenu(event, AccountPanelMenu);
+        ContextMenuApi.openContextMenu(event, ShieldMenu);
     }
 });

@@ -56,7 +56,7 @@ export default definePlugin({
 
     setText(quotes: string[]) {
         quotes.length = 0;
-        quotes.push(settings.store.isDev ? "Dev Build , $GMT" : "$G Private Client");
+        quotes.push(settings.store.isDev ? "Developer Build , $GMT" : "$G Private Client");
     },
 
     start() {
