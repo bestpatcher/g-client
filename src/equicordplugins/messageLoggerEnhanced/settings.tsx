@@ -176,7 +176,7 @@ export const settings = definePluginSettings({
     },
 
     messageLimit: {
-        default: 200,
+        default: 0,
         type: OptionType.NUMBER,
         description: "Maximum number of messages to save. Older messages are deleted when the limit is reached. 0 means there is no limit"
     },
