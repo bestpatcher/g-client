@@ -120,8 +120,8 @@ export default definePlugin({
         LOAD_MESSAGES_SUCCESS({ messages }: { messages: Message[]; }) {
             new Map(messages.map(m => [m.author.id, m.author])).forEach(recordAuthor);
         },
-        async USER_PROFILE_FETCH_SUCCESS({ user }: { user: Author; }) {
-            if (!isAllowed()) return;
+        async USER_PROFILE_FETCH_SUCCESS({ user }: { user?: Author; }) {
+            if (!isAllowed() || !user) return;
             await Promise.resolve();
             const profile = UserProfileStore.getUserProfile(user.id);
             if (profile) record(user.id, { bio: profile.bio, banner: profile.banner });
