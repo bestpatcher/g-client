@@ -127,7 +127,7 @@ export default definePlugin({
 
     async openMenu(event: React.MouseEvent) {
         if (!isAllowed()) return;
-        await requireMenuSliderControl();
+        await requireMenuSliderControl().catch(() => {});
         ContextMenuApi.openContextMenu(event, ShieldMenu);
     }
 });
