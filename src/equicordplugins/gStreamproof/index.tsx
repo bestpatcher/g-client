@@ -55,46 +55,50 @@ const ShieldMenu = ErrorBoundary.wrap(() => {
                 checked={enabled}
                 action={() => set(!enabled)}
             />
-            <Menu.MenuControlItem
-                id="vc-gstreamproof-friendcount"
-                label={`Friend requests: ${friendCountValue}`}
-                control={(props, ref) => (
-                    <Menu.MenuSliderControl
-                        ref={ref}
-                        {...props}
-                        minValue={0}
-                        maxValue={5000}
-                        value={friendCountValue}
-                        onChange={debounce((v: number) => { settings.store.friendCount = Math.round(v); }, 50)}
-                        renderValue={(v: number) => String(Math.round(v))}
+            {Menu.MenuSliderControl && (
+                <>
+                    <Menu.MenuControlItem
+                        id="vc-gstreamproof-friendcount"
+                        label={`Friend requests: ${friendCountValue}`}
+                        control={(props, ref) => (
+                            <Menu.MenuSliderControl
+                                ref={ref}
+                                {...props}
+                                minValue={0}
+                                maxValue={5000}
+                                value={friendCountValue}
+                                onChange={debounce((v: number) => { settings.store.friendCount = Math.round(v); }, 50)}
+                                renderValue={(v: number) => String(Math.round(v))}
+                            />
+                        )}
                     />
-                )}
-            />
-            <Menu.MenuItem
-                id="vc-gstreamproof-friendcount-reset"
-                label="Reset friend count"
-                action={() => { settings.store.friendCount = null; }}
-            />
-            <Menu.MenuControlItem
-                id="vc-gstreamproof-messagecount"
-                label={`Message requests: ${messageCountValue}`}
-                control={(props, ref) => (
-                    <Menu.MenuSliderControl
-                        ref={ref}
-                        {...props}
-                        minValue={0}
-                        maxValue={5000}
-                        value={messageCountValue}
-                        onChange={debounce((v: number) => { settings.store.messageCount = Math.round(v); }, 50)}
-                        renderValue={(v: number) => String(Math.round(v))}
+                    <Menu.MenuItem
+                        id="vc-gstreamproof-friendcount-reset"
+                        label="Reset friend count"
+                        action={() => { settings.store.friendCount = null; }}
                     />
-                )}
-            />
-            <Menu.MenuItem
-                id="vc-gstreamproof-messagecount-reset"
-                label="Reset message count"
-                action={() => { settings.store.messageCount = null; }}
-            />
+                    <Menu.MenuControlItem
+                        id="vc-gstreamproof-messagecount"
+                        label={`Message requests: ${messageCountValue}`}
+                        control={(props, ref) => (
+                            <Menu.MenuSliderControl
+                                ref={ref}
+                                {...props}
+                                minValue={0}
+                                maxValue={5000}
+                                value={messageCountValue}
+                                onChange={debounce((v: number) => { settings.store.messageCount = Math.round(v); }, 50)}
+                                renderValue={(v: number) => String(Math.round(v))}
+                            />
+                        )}
+                    />
+                    <Menu.MenuItem
+                        id="vc-gstreamproof-messagecount-reset"
+                        label="Reset message count"
+                        action={() => { settings.store.messageCount = null; }}
+                    />
+                </>
+            )}
         </Menu.Menu>
     );
 }, { noop: true });
