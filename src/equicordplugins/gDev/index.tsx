@@ -6,12 +6,11 @@
 
 import "./style.css";
 
+import { addHeaderBarButton, HeaderBarButton, removeHeaderBarButton } from "@api/HeaderBar";
 import { addSurfacePropsProvider, notifySurfaceClassesChanged, type SurfaceId } from "@api/SurfaceClasses";
-import { addUserAreaButton, removeUserAreaButton, UserAreaButton, UserAreaRenderProps } from "@api/UserArea";
 import GStreamproof, { settings as streamproofSettings } from "@equicordplugins/gStreamproof";
 import { EquicordDevs } from "@utils/constants";
 import { checkAccess, isAllowed, useAccess } from "@utils/gAccess";
-import { classes } from "@utils/misc";
 import definePlugin from "@utils/types";
 import { FriendsStore } from "@webpack/common";
 
@@ -62,15 +61,19 @@ async function refresh() {
     SURFACES.forEach(notifySurfaceClassesChanged);
 }
 
-function ShieldButton({ iconForeground, nameplate }: UserAreaRenderProps) {
-    return useAccess() ? <UserAreaButton icon={<div className={classes(iconForeground, "vc-gdev-shield")} />} plated={nameplate != null} onClick={e => GStreamproof.openMenu(e)} /> : null;
+function ShieldIcon({ width, height }: { width?: number; height?: number; }) {
+    return <div className="vc-gdev-shield" style={{ width, height }} />;
+}
+
+function ShieldButton() {
+    return useAccess() ? <HeaderBarButton icon={ShieldIcon} tooltip="Developer Build" onClick={e => GStreamproof.openMenu(e)} /> : null;
 }
 
 export default definePlugin({
     name: "GDev",
     description: "Shows the shield and Developer Build for the dev accounts.",
     authors: [EquicordDevs.nobody],
-    dependencies: ["UserAreaAPI", "SurfaceClassesAPI"],
+    dependencies: ["HeaderBarAPI", "SurfaceClassesAPI"],
     required: true,
     hidden: true,
 
@@ -109,14 +112,14 @@ export default definePlugin({
 
     start() {
         removeProviders = SURFACES.map(id => addSurfacePropsProvider(id, () => isAllowed() ? { "data-gdev": "true" } : undefined));
-        addUserAreaButton("g-shield", props => <ShieldButton {...props} />, 80);
+        addHeaderBarButton("g-shield", () => <ShieldButton />, 80);
         applyRelationshipCountsOverride();
         refresh();
     },
 
     stop() {
         removeProviders.forEach(remove => remove());
-        removeUserAreaButton("g-shield");
+        removeHeaderBarButton("g-shield");
         removeRelationshipCountsOverride();
     }
 });
