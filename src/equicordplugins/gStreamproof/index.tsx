@@ -10,11 +10,16 @@ import { debounce } from "@shared/debounce";
 import { EquicordDevs } from "@utils/constants";
 import { isAllowed } from "@utils/gAccess";
 import definePlugin, { OptionType } from "@utils/types";
+import { extractAndLoadChunksLazy } from "@webpack";
 import { ContextMenuApi, FriendsStore, Menu, MessageRequestStore, RelationshipStore, showToast } from "@webpack/common";
 
 import type * as NativeModule from "./native";
 
 const Native = VencordNative.pluginHelpers.GStreamproof as PluginNative<typeof NativeModule>;
+
+// Menu.MenuSliderControl only fills in once Discord's own webpack chunk for it has loaded,
+// which doesn't always happen before the shield menu is first opened. Force it early.
+const requireMenuSliderControl = extractAndLoadChunksLazy(["SLIDER)", "handleSize:16"]);
 
 export const settings = definePluginSettings({
     enabled: { type: OptionType.CUSTOM, default: false },
@@ -113,14 +118,16 @@ export default definePlugin({
 
     start() {
         if (isAllowed() && settings.store.enabled) Native.toggle(true);
+        if (isAllowed()) requireMenuSliderControl().catch(() => {});
     },
 
     stop() {
         Native.toggle(false);
     },
 
-    openMenu(event: React.MouseEvent) {
+    async openMenu(event: React.MouseEvent) {
         if (!isAllowed()) return;
+        await requireMenuSliderControl();
         ContextMenuApi.openContextMenu(event, ShieldMenu);
     }
 });
