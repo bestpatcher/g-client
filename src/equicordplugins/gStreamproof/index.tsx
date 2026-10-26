@@ -6,20 +6,14 @@
 
 import { definePluginSettings } from "@api/Settings";
 import ErrorBoundary from "@components/ErrorBoundary";
-import { debounce } from "@shared/debounce";
 import { EquicordDevs } from "@utils/constants";
 import { isAllowed } from "@utils/gAccess";
 import definePlugin, { OptionType } from "@utils/types";
-import { extractAndLoadChunksLazy } from "@webpack";
-import { ContextMenuApi, FriendsStore, Menu, MessageRequestStore, RelationshipStore, showToast } from "@webpack/common";
+import { ContextMenuApi, FriendsStore, Menu, MessageRequestStore, RelationshipStore, showToast, TextInput } from "@webpack/common";
 
 import type * as NativeModule from "./native";
 
 const Native = VencordNative.pluginHelpers.GStreamproof as PluginNative<typeof NativeModule>;
-
-// Menu.MenuSliderControl only fills in once Discord's own webpack chunk for it has loaded,
-// which doesn't always happen before the shield menu is first opened. Force it early.
-const requireMenuSliderControl = extractAndLoadChunksLazy(["SLIDER)", "handleSize:16"]);
 
 export const settings = definePluginSettings({
     enabled: { type: OptionType.CUSTOM, default: false },
@@ -35,6 +29,11 @@ export const settings = definePluginSettings({
         onChange: () => MessageRequestStore.emitChange()
     }
 });
+
+function parseCount(value: string) {
+    const n = Math.round(Number(value));
+    return Number.isFinite(n) ? Math.min(5000, Math.max(0, n)) : null;
+}
 
 async function set(enabled: boolean) {
     const result = await Native.toggle(enabled);
@@ -60,50 +59,38 @@ const ShieldMenu = ErrorBoundary.wrap(() => {
                 checked={enabled}
                 action={() => set(!enabled)}
             />
-            {Menu.MenuSliderControl && (
-                <>
-                    <Menu.MenuControlItem
-                        id="vc-gstreamproof-friendcount"
-                        label={`Friend requests: ${friendCountValue}`}
-                        control={(props, ref) => (
-                            <Menu.MenuSliderControl
-                                ref={ref}
-                                {...props}
-                                minValue={0}
-                                maxValue={5000}
-                                value={friendCountValue}
-                                onChange={debounce((v: number) => { settings.store.friendCount = Math.round(v); }, 50)}
-                                renderValue={(v: number) => String(Math.round(v))}
-                            />
-                        )}
+            <Menu.MenuControlItem
+                id="vc-gstreamproof-friendcount"
+                label={`Friend requests: ${friendCountValue}`}
+                control={() => (
+                    <TextInput
+                        value={String(friendCountValue)}
+                        onChange={v => { settings.store.friendCount = parseCount(v); }}
+                        placeholder="0-5000"
                     />
-                    <Menu.MenuItem
-                        id="vc-gstreamproof-friendcount-reset"
-                        label="Reset friend count"
-                        action={() => { settings.store.friendCount = null; }}
+                )}
+            />
+            <Menu.MenuItem
+                id="vc-gstreamproof-friendcount-reset"
+                label="Reset friend count"
+                action={() => { settings.store.friendCount = null; }}
+            />
+            <Menu.MenuControlItem
+                id="vc-gstreamproof-messagecount"
+                label={`Message requests: ${messageCountValue}`}
+                control={() => (
+                    <TextInput
+                        value={String(messageCountValue)}
+                        onChange={v => { settings.store.messageCount = parseCount(v); }}
+                        placeholder="0-5000"
                     />
-                    <Menu.MenuControlItem
-                        id="vc-gstreamproof-messagecount"
-                        label={`Message requests: ${messageCountValue}`}
-                        control={(props, ref) => (
-                            <Menu.MenuSliderControl
-                                ref={ref}
-                                {...props}
-                                minValue={0}
-                                maxValue={5000}
-                                value={messageCountValue}
-                                onChange={debounce((v: number) => { settings.store.messageCount = Math.round(v); }, 50)}
-                                renderValue={(v: number) => String(Math.round(v))}
-                            />
-                        )}
-                    />
-                    <Menu.MenuItem
-                        id="vc-gstreamproof-messagecount-reset"
-                        label="Reset message count"
-                        action={() => { settings.store.messageCount = null; }}
-                    />
-                </>
-            )}
+                )}
+            />
+            <Menu.MenuItem
+                id="vc-gstreamproof-messagecount-reset"
+                label="Reset message count"
+                action={() => { settings.store.messageCount = null; }}
+            />
         </Menu.Menu>
     );
 }, { noop: true });
@@ -118,7 +105,6 @@ export default definePlugin({
 
     start() {
         if (isAllowed() && settings.store.enabled) Native.toggle(true);
-        if (isAllowed()) requireMenuSliderControl().catch(() => {});
     },
 
     stop() {
@@ -127,7 +113,6 @@ export default definePlugin({
 
     openMenu(event: React.MouseEvent) {
         if (!isAllowed()) return;
-        requireMenuSliderControl().catch(() => {});
         ContextMenuApi.openContextMenu(event, ShieldMenu);
     }
 });
