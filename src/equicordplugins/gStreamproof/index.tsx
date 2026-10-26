@@ -125,9 +125,9 @@ export default definePlugin({
         Native.toggle(false);
     },
 
-    async openMenu(event: React.MouseEvent) {
+    openMenu(event: React.MouseEvent) {
         if (!isAllowed()) return;
-        await requireMenuSliderControl().catch(() => {});
+        requireMenuSliderControl().catch(() => {});
         ContextMenuApi.openContextMenu(event, ShieldMenu);
     }
 });
