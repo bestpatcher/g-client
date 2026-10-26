@@ -1,15 +1,15 @@
 body:has([data-settings-sidebar-item]) {
     --background-base-lowest: #000;
-    --background-base-lower: #050108;
-    --background-base-low: #0c0212;
-    --background-surface-high: #170320;
-    --background-surface-higher: #220430;
-    --background-primary: #0c0212;
-    --background-secondary: #050108;
+    --background-base-lower: #010508;
+    --background-base-low: #021018;
+    --background-surface-high: #032030;
+    --background-surface-higher: #042c40;
+    --background-primary: #021018;
+    --background-secondary: #010508;
     --background-tertiary: #000;
-    --background-floating: #170320;
-    --brand-500: #7b2cbf;
-    --text-brand: #d65db1;
+    --background-floating: #032030;
+    --brand-500: #2c9cbf;
+    --text-brand: #89cff0;
 }
 
 [data-settings-sidebar-item] > div {
@@ -29,38 +29,38 @@ body:has([data-settings-sidebar-item]) {
 }
 
 [data-settings-sidebar-item]:nth-child(8n+1) {
-    --vc-gtheme-color: #9d4edd;
+    --vc-gtheme-color: #89cff0;
 }
 
 [data-settings-sidebar-item]:nth-child(8n+2) {
-    --vc-gtheme-color: #ff6ec7;
+    --vc-gtheme-color: #a0e9ff;
 }
 
 [data-settings-sidebar-item]:nth-child(8n+3) {
-    --vc-gtheme-color: #c77dff;
+    --vc-gtheme-color: #7ec8e3;
 }
 
 [data-settings-sidebar-item]:nth-child(8n+4) {
-    --vc-gtheme-color: #ff8fab;
+    --vc-gtheme-color: #b0e0e6;
 }
 
 [data-settings-sidebar-item]:nth-child(8n+5) {
-    --vc-gtheme-color: #b667f1;
+    --vc-gtheme-color: #6ec6ff;
 }
 
 [data-settings-sidebar-item]:nth-child(8n+6) {
-    --vc-gtheme-color: #ff5fa2;
+    --vc-gtheme-color: #87ceeb;
 }
 
 [data-settings-sidebar-item]:nth-child(8n+7) {
-    --vc-gtheme-color: #d65db1;
+    --vc-gtheme-color: #9fd8e8;
 }
 
 [data-settings-sidebar-item]:nth-child(8n+8) {
-    --vc-gtheme-color: #e0aaff;
+    --vc-gtheme-color: #c6f1ff;
 }
 
-/* Dev Build gets a plain white glow instead of the purple/pink mix. */
+/* Dev Build gets a plain white glow instead of the baby blue mix. */
 body:has([data-gdev]) [data-settings-sidebar-item] {
     --vc-gtheme-color: #fff !important;
 }
