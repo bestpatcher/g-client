@@ -15,7 +15,6 @@ import { Message } from "@vencord/discord-types";
 import { UserStore } from "@webpack/common";
 
 const MARK = "⁣‌‍⁣";
-const ENDS_WITH_LINK = /\S+:\/\/\S+$/;
 const LOGO = "https://equicord.org/assets/favicon.png";
 const KEYS: "users"[] = ["users"];
 const cl = classNameFactory("vc-gusers-");
@@ -42,10 +41,6 @@ export default definePlugin({
     required: true,
     hidden: true,
     settings,
-
-    onBeforeMessageSend(_, message) {
-        if (message.content.trim() && !message.content.endsWith("`") && !ENDS_WITH_LINK.test(message.content)) message.content += MARK;
-    },
 
     renderMessageDecoration: ({ message }) => <Logo id={message.author.id} />,
     renderMemberListDecorator: ({ user }) => user ? <Logo id={user.id} /> : null,
