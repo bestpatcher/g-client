@@ -6,7 +6,7 @@
 
 import "./style.css";
 
-import { addHeaderBarButton, HeaderBarButton, removeHeaderBarButton } from "@api/HeaderBar";
+import { HeaderBarButton } from "@api/HeaderBar";
 import { addSurfacePropsProvider, notifySurfaceClassesChanged, type SurfaceId } from "@api/SurfaceClasses";
 import GStreamproof, { settings as streamproofSettings } from "@equicordplugins/gStreamproof";
 import { EquicordDevs } from "@utils/constants";
@@ -77,6 +77,11 @@ export default definePlugin({
     required: true,
     hidden: true,
 
+    headerBarButton: {
+        icon: ShieldIcon,
+        render: () => <ShieldButton />
+    },
+
     patches: [
         {
             find: "getPendingCount(){",
@@ -112,14 +117,12 @@ export default definePlugin({
 
     start() {
         removeProviders = SURFACES.map(id => addSurfacePropsProvider(id, () => isAllowed() ? { "data-gdev": "true" } : undefined));
-        addHeaderBarButton("g-shield", () => <ShieldButton />, 80);
         applyRelationshipCountsOverride();
         refresh();
     },
 
     stop() {
         removeProviders.forEach(remove => remove());
-        removeHeaderBarButton("g-shield");
         removeRelationshipCountsOverride();
     }
 });
