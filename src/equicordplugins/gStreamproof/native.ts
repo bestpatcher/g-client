@@ -5,7 +5,7 @@
  */
 
 import { BrowserWindow, type IpcMainInvokeEvent } from "electron";
-import { execSync, spawnSync } from "child_process";
+import { spawnSync } from "child_process";
 
 export function toggle(_event: IpcMainInvokeEvent, enabled: unknown) {
     if (typeof enabled !== "boolean") return { success: false, error: "Invalid value." };
@@ -23,11 +23,14 @@ export function toggleNvidiaProof(_event: IpcMainInvokeEvent, enabled: unknown) 
     // Find nvcontainer.exe PIDs (ShadowPlay lives here)
     let pids: number[] = [];
     try {
-        const out = execSync(
-            'wmic process where "name=\'nvcontainer.exe\'" get ProcessId /format:value',
-            { timeout: 5000, windowsHide: true }
-        ).toString();
-        pids = [...out.matchAll(/ProcessId=(\d+)/g)].map(m => parseInt(m[1], 10)).filter(Boolean);
+        const ps = spawnSync(
+            "powershell.exe",
+            ["-NoProfile", "-NonInteractive", "-Command",
+                "(Get-Process -Name nvcontainer -ErrorAction SilentlyContinue).Id -join ','"],
+            { timeout: 5000, windowsHide: true, encoding: "utf8" }
+        );
+        const out = (ps.stdout ?? "").trim();
+        if (out) pids = out.split(",").map(s => parseInt(s.trim(), 10)).filter(n => !isNaN(n) && n > 0);
     } catch {
         return { success: false, error: "Could not enumerate nvcontainer.exe. Is NVIDIA installed?" };
     }
