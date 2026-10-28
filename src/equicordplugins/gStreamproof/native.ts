@@ -42,10 +42,12 @@ export function toggleNvidiaProof(_event: IpcMainInvokeEvent, enabled: unknown) 
     //   48 8D 54 24 24 48 8B CD FF 15 ?? ?? ?? ?? 85 C0 74 ??
     // The 74 at anchor+16 is the JZ that gates ShadowPlay capture.
     // Patching 74→EB (JZ→JMP) forces the skip branch unconditionally.
+    // Scan is done in C# (via Add-Type) so it's fast even on a 44MB DLL.
     const patchScript = `
 if (-not ([System.Management.Automation.PSTypeName]'NvPatch').Type) {
 Add-Type -TypeDefinition @"
 using System;
+using System.Diagnostics;
 using System.Runtime.InteropServices;
 public class NvPatch {
     [DllImport("kernel32.dll")] public static extern IntPtr OpenProcess(uint a, bool b, uint c);
@@ -53,55 +55,58 @@ public class NvPatch {
     [DllImport("kernel32.dll")] public static extern bool WriteProcessMemory(IntPtr h, IntPtr a, byte[] buf, int n, out int w);
     [DllImport("kernel32.dll")] public static extern bool VirtualProtectEx(IntPtr h, IntPtr a, uint n, uint np, out uint op);
     [DllImport("kernel32.dll")] public static extern bool CloseHandle(IntPtr h);
+    public static int PatchProcess(int pid, bool enable) {
+        IntPtr hProc = OpenProcess(0x1F0FFF, false, (uint)pid);
+        if (hProc == IntPtr.Zero) return -1;
+        try {
+            Process proc = Process.GetProcessById(pid);
+            ProcessModule mod = null;
+            foreach (ProcessModule m in proc.Modules) {
+                if (m.ModuleName.Equals("nvd3dumx.dll", StringComparison.OrdinalIgnoreCase)) { mod = m; break; }
+            }
+            if (mod == null) return -2;
+            int size = mod.ModuleMemorySize;
+            byte[] buf = new byte[size];
+            int read = 0;
+            uint oldProt = 0;
+            VirtualProtectEx(hProc, mod.BaseAddress, (uint)size, 0x20, out oldProt);
+            if (!ReadProcessMemory(hProc, mod.BaseAddress, buf, size, out read)) return -3;
+            VirtualProtectEx(hProc, mod.BaseAddress, (uint)size, oldProt, out oldProt);
+            // Anchor: 48 8D 54 24 24 48 8B CD FF 15 [4 bytes] 85 C0 74
+            byte[] anchor = new byte[] { 0x48,0x8D,0x54,0x24,0x24,0x48,0x8B,0xCD,0xFF,0x15 };
+            for (int i = 0; i < read - 18; i++) {
+                bool match = true;
+                for (int j = 0; j < anchor.Length; j++) if (buf[i+j] != anchor[j]) { match = false; break; }
+                if (!match) continue;
+                if (buf[i+14] != 0x85 || buf[i+15] != 0xC0 || buf[i+16] != 0x74) continue;
+                IntPtr addr = new IntPtr(mod.BaseAddress.ToInt64() + i + 16);
+                byte[] patch = enable ? new byte[]{ 0xEB } : new byte[]{ 0x74 };
+                int w = 0;
+                VirtualProtectEx(hProc, addr, 1, 0x40, out oldProt);
+                WriteProcessMemory(hProc, addr, patch, 1, out w);
+                VirtualProtectEx(hProc, addr, 1, oldProt, out oldProt);
+                return 1;
+            }
+            return 0;
+        } finally { CloseHandle(hProc); }
+    }
 }
 "@
 }
 $pids = @(${pids.join(",")})
 $enabled = $${enabled ? "true" : "false"}
 $patched = 0
-# Unique anchor: 48 8D 54 24 24 48 8B CD FF 15 (then 4-byte rel32) 85 C0 74
-$anchor = [byte[]](0x48,0x8D,0x54,0x24,0x24,0x48,0x8B,0xCD,0xFF,0x15)
+$errors = @()
 foreach ($pid in $pids) {
-    $hProc = [NvPatch]::OpenProcess(0x1F0FFF, $false, $pid)
-    if ($hProc -eq [IntPtr]::Zero) { continue }
-    try {
-        $proc = [System.Diagnostics.Process]::GetProcessById($pid)
-        $mod = $proc.Modules | Where-Object { $_.ModuleName -eq "nvd3dumx.dll" } | Select-Object -First 1
-        if (-not $mod) { continue }
-        $base = $mod.BaseAddress
-        $size = $mod.ModuleMemorySize
-        $buf = New-Object byte[] $size
-        $read = 0
-        $oldProt = 0
-        [NvPatch]::VirtualProtectEx($hProc, $base, $size, 0x20, [ref]$oldProt) | Out-Null
-        if (-not [NvPatch]::ReadProcessMemory($hProc, $base, $buf, $size, [ref]$read)) { continue }
-        [NvPatch]::VirtualProtectEx($hProc, $base, $size, $oldProt, [ref]$oldProt) | Out-Null
-        for ($i = 0; $i -lt ($read - 18); $i++) {
-            $match = $true
-            for ($j = 0; $j -lt $anchor.Length; $j++) {
-                if ($buf[$i+$j] -ne $anchor[$j]) { $match = $false; break }
-            }
-            if (-not $match) { continue }
-            # anchor[10..13] = rel32 (wildcard), anchor+14 = 85, anchor+15 = C0, anchor+16 = 74
-            if ($buf[$i+14] -ne 0x85 -or $buf[$i+15] -ne 0xC0 -or $buf[$i+16] -ne 0x74) { continue }
-            $addr = [IntPtr]($base.ToInt64() + $i + 16)
-            $patch = if ($enabled) { [byte[]](0xEB) } else { [byte[]](0x74) }
-            $w = 0
-            [NvPatch]::VirtualProtectEx($hProc, $addr, 1, 0x40, [ref]$oldProt) | Out-Null
-            [NvPatch]::WriteProcessMemory($hProc, $addr, $patch, 1, [ref]$w) | Out-Null
-            [NvPatch]::VirtualProtectEx($hProc, $addr, 1, $oldProt, [ref]$oldProt) | Out-Null
-            $patched++
-            break
-        }
-    } finally {
-        [NvPatch]::CloseHandle($hProc) | Out-Null
-    }
+    $r = [NvPatch]::PatchProcess($pid, $enabled)
+    if ($r -eq 1) { $patched++ }
+    elseif ($r -lt 0) { $errors += "pid=$pid code=$r" }
 }
-Write-Output "patched=$patched"
+Write-Output "patched=$patched errors=$($errors -join ',')"
 `.trim();
 
     const patch = spawnSync("powershell.exe", ["-NoProfile", "-NonInteractive", "-Command", patchScript], {
-        timeout: 15000,
+        timeout: 30000,
         windowsHide: true,
         encoding: "utf8"
     });
@@ -109,16 +114,13 @@ Write-Output "patched=$patched"
     if (patch.error) return { success: false, error: "Patch failed: " + patch.error.message };
 
     const patchOut = (patch.stdout ?? "").trim();
-    const match = patchOut.match(/patched=(\d+)/);
-    const count = match ? parseInt(match[1], 10) : 0;
+    const matchResult = patchOut.match(/patched=(\d+)/);
+    const count = matchResult ? parseInt(matchResult[1], 10) : 0;
 
     if (count === 0) {
         const stderr = (patch.stderr ?? "").trim();
-        const stdout = (patch.stdout ?? "").trim();
-        const log = [stdout, stderr].filter(Boolean).join("\n--- STDERR ---\n");
-        try { require("fs").writeFileSync("C:\\nvpatch_debug.txt", log); } catch {}
-        const detail = [stdout, stderr].filter(Boolean).join(" | ").slice(0, 300);
-        return { success: false, error: `Nvidia Proof failed. Check C:\\nvpatch_debug.txt for details. ${detail}` };
+        const detail = [patchOut, stderr].filter(Boolean).join(" | ").slice(0, 300);
+        return { success: false, error: `Nvidia Proof failed. ${detail || "No output."}` };
     }
 
     return { success: true };
