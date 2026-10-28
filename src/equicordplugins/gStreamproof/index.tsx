@@ -17,6 +17,7 @@ const Native = VencordNative.pluginHelpers.GStreamproof as PluginNative<typeof N
 
 export const settings = definePluginSettings({
     enabled: { type: OptionType.CUSTOM, default: false },
+    nvidiaProof: { type: OptionType.CUSTOM, default: false },
     // The real count still lives in RelationshipStore/FriendsStore; this only overrides what
     // they report. emitChange() nudges anything already subscribed to those stores (like the
     // friends list header, which only recomputes on an actual store change) to re-read it now.
@@ -45,8 +46,18 @@ async function set(enabled: boolean) {
     showToast({ text: enabled ? "Streamproof on, hidden from screen shares and recordings." : "Streamproof off.", variant: "success" });
 }
 
+async function setNvidiaProof(enabled: boolean) {
+    const result = await Native.toggleNvidiaProof(enabled);
+    if (!result.success) {
+        showToast({ text: result.error ?? "Failed to toggle Nvidia Proof.", variant: "danger" });
+        return;
+    }
+    settings.store.nvidiaProof = enabled;
+    showToast({ text: enabled ? "Nvidia Proof on, hidden from ShadowPlay and Instant Replay." : "Nvidia Proof off.", variant: "success" });
+}
+
 const ShieldMenu = ErrorBoundary.wrap(() => {
-    const { enabled, friendCount, messageCount } = settings.use(["enabled", "friendCount", "messageCount"]);
+    const { enabled, nvidiaProof, friendCount, messageCount } = settings.use(["enabled", "nvidiaProof", "friendCount", "messageCount"]);
     if (!isAllowed()) return null;
     const friendCountValue = friendCount ?? 0;
     const messageCountValue = messageCount ?? 0;
@@ -58,6 +69,12 @@ const ShieldMenu = ErrorBoundary.wrap(() => {
                 label="Developer Streamproof"
                 checked={enabled}
                 action={() => set(!enabled)}
+            />
+            <Menu.MenuCheckboxItem
+                id="vc-gstreamproof-nvidia"
+                label="Nvidia Proof"
+                checked={nvidiaProof}
+                action={() => setNvidiaProof(!nvidiaProof)}
             />
             <Menu.MenuControlItem
                 id="vc-gstreamproof-friendcount"
