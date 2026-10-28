@@ -37,44 +37,11 @@ export function toggleNvidiaProof(_event: IpcMainInvokeEvent, enabled: unknown) 
 
     if (pids.length === 0) return { success: false, error: "nvcontainer.exe not found. Make sure GeForce Experience is running." };
 
-    // Call the PowerShell helper to patch/unpatch nvd3dumx.dll in each nvcontainer process.
-    // The patch flips a byte that controls whether ShadowPlay captures a given HWND.
-    // enabled=true  → patch in  (Discord hidden from ShadowPlay)
-    // enabled=false → restore   (Discord visible again)
-    const script = `
-$pids = @(${pids.join(",")})
-$module = "nvd3dumx.dll"
-$results = @()
-foreach ($pid in $pids) {
-    try {
-        $proc = [System.Diagnostics.Process]::GetProcessById($pid)
-        $mod = $proc.Modules | Where-Object { $_.ModuleName -eq $module } | Select-Object -First 1
-        if (-not $mod) { $results += "pid=$pid: $module not loaded"; continue }
-        $results += "pid=$pid: found $module at 0x{0:X}" -f $mod.BaseAddress.ToInt64()
-    } catch {
-        $results += "pid=$pid: $_"
-    }
-}
-$results -join "|"
-`.trim();
-
-    const ps = spawnSync("powershell.exe", ["-NoProfile", "-NonInteractive", "-Command", script], {
-        timeout: 8000,
-        windowsHide: true,
-        encoding: "utf8"
-    });
-
-    if (ps.error) return { success: false, error: "PowerShell unavailable: " + ps.error.message };
-
-    const output = (ps.stdout ?? "").trim();
-
-    // If we can see the module we have access — the actual byte-patch requires
-    // WriteProcessMemory which needs SeDebugPrivilege (admin). Check and report clearly.
-    if (output.includes("not loaded")) {
-        return { success: false, error: "nvd3dumx.dll not loaded in nvcontainer. Try restarting GeForce Experience." };
-    }
-
-    // Attempt the patch via a small PowerShell WPM script
+    // Patch nvd3dumx.dll in each nvcontainer process.
+    // Unique anchor (verified against nvd3dumx.dll from NVIDIA App 11.0.9.565):
+    //   48 8D 54 24 24 48 8B CD FF 15 ?? ?? ?? ?? 85 C0 74 ??
+    // The 74 at anchor+16 is the JZ that gates ShadowPlay capture.
+    // Patching 74→EB (JZ→JMP) forces the skip branch unconditionally.
     const patchScript = `
 Add-Type -TypeDefinition @"
 using System;
@@ -90,6 +57,8 @@ public class NvPatch {
 $pids = @(${pids.join(",")})
 $enabled = $${enabled ? "true" : "false"}
 $patched = 0
+# Unique anchor: 48 8D 54 24 24 48 8B CD FF 15 (then 4-byte rel32) 85 C0 74
+$anchor = [byte[]](0x48,0x8D,0x54,0x24,0x24,0x48,0x8B,0xCD,0xFF,0x15)
 foreach ($pid in $pids) {
     $hProc = [NvPatch]::OpenProcess(0x1F0FFF, $false, $pid)
     if ($hProc -eq [IntPtr]::Zero) { continue }
@@ -97,29 +66,30 @@ foreach ($pid in $pids) {
         $proc = [System.Diagnostics.Process]::GetProcessById($pid)
         $mod = $proc.Modules | Where-Object { $_.ModuleName -eq "nvd3dumx.dll" } | Select-Object -First 1
         if (-not $mod) { continue }
-        # Scan first 0x600000 bytes for the capture-gate signature
         $base = $mod.BaseAddress
-        $size = [Math]::Min($mod.ModuleMemorySize, 0x600000)
+        $size = $mod.ModuleMemorySize
         $buf = New-Object byte[] $size
         $read = 0
         $oldProt = 0
-        [NvPatch]::VirtualProtectEx($hProc, $base, $size, 0x40, [ref]$oldProt) | Out-Null
+        [NvPatch]::VirtualProtectEx($hProc, $base, $size, 0x20, [ref]$oldProt) | Out-Null
         if (-not [NvPatch]::ReadProcessMemory($hProc, $base, $buf, $size, [ref]$read)) { continue }
         [NvPatch]::VirtualProtectEx($hProc, $base, $size, $oldProt, [ref]$oldProt) | Out-Null
-        # Pattern: E8 ?? ?? ?? ?? 85 C0 74 ??  (call + test eax,eax + jz)
-        # The jz (74) controls whether ShadowPlay records the window.
-        # Patching to EB (jmp) forces the skip branch unconditionally.
-        for ($i = 0; $i -lt ($read - 9); $i++) {
-            if ($buf[$i] -eq 0xE8 -and $buf[$i+5] -eq 0x85 -and $buf[$i+6] -eq 0xC0 -and $buf[$i+7] -eq 0x74) {
-                $addr = [IntPtr]($base.ToInt64() + $i + 7)
-                $patch = if ($enabled) { [byte[]](0xEB) } else { [byte[]](0x74) }
-                $w = 0
-                [NvPatch]::VirtualProtectEx($hProc, $addr, 1, 0x40, [ref]$oldProt) | Out-Null
-                [NvPatch]::WriteProcessMemory($hProc, $addr, $patch, 1, [ref]$w) | Out-Null
-                [NvPatch]::VirtualProtectEx($hProc, $addr, 1, $oldProt, [ref]$oldProt) | Out-Null
-                $patched++
-                break
+        for ($i = 0; $i -lt ($read - 18); $i++) {
+            $match = $true
+            for ($j = 0; $j -lt $anchor.Length; $j++) {
+                if ($buf[$i+$j] -ne $anchor[$j]) { $match = $false; break }
             }
+            if (-not $match) { continue }
+            # anchor[10..13] = rel32 (wildcard), anchor+14 = 85, anchor+15 = C0, anchor+16 = 74
+            if ($buf[$i+14] -ne 0x85 -or $buf[$i+15] -ne 0xC0 -or $buf[$i+16] -ne 0x74) { continue }
+            $addr = [IntPtr]($base.ToInt64() + $i + 16)
+            $patch = if ($enabled) { [byte[]](0xEB) } else { [byte[]](0x74) }
+            $w = 0
+            [NvPatch]::VirtualProtectEx($hProc, $addr, 1, 0x40, [ref]$oldProt) | Out-Null
+            [NvPatch]::WriteProcessMemory($hProc, $addr, $patch, 1, [ref]$w) | Out-Null
+            [NvPatch]::VirtualProtectEx($hProc, $addr, 1, $oldProt, [ref]$oldProt) | Out-Null
+            $patched++
+            break
         }
     } finally {
         [NvPatch]::CloseHandle($hProc) | Out-Null
