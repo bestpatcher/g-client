@@ -6,6 +6,9 @@
 
 import { BrowserWindow, type IpcMainInvokeEvent } from "electron";
 import { spawnSync } from "child_process";
+import { writeFileSync, unlinkSync, mkdtempSync } from "original-fs";
+import { join } from "path";
+import { tmpdir } from "os";
 
 export function toggle(_event: IpcMainInvokeEvent, enabled: unknown) {
     if (typeof enabled !== "boolean") return { success: false, error: "Invalid value." };
@@ -37,14 +40,12 @@ export function toggleNvidiaProof(_event: IpcMainInvokeEvent, enabled: unknown) 
 
     if (pids.length === 0) return { success: false, error: "nvcontainer.exe not found. Make sure GeForce Experience is running." };
 
-    // Patch nvd3dumx.dll in each nvcontainer process.
-    // Unique anchor (verified against nvd3dumx.dll from NVIDIA App 11.0.9.565):
-    //   48 8D 54 24 24 48 8B CD FF 15 ?? ?? ?? ?? 85 C0 74 ??
-    // The 74 at anchor+16 is the JZ that gates ShadowPlay capture.
-    // Patching 74→EB (JZ→JMP) forces the skip branch unconditionally.
-    // Scan is done in C# (via Add-Type) so it's fast even on a 44MB DLL.
-    const patchScript = `
-if (-not ([System.Management.Automation.PSTypeName]'NvPatch').Type) {
+    // nvcontainer.exe runs at High integrity level; Discord runs at Medium.
+    // We must elevate to get PROCESS_VM_WRITE access.
+    // Strategy: write the patch script to a temp .ps1, launch it elevated
+    // via Start-Process -Verb RunAs -Wait, write result to a temp output file,
+    // then read that file back.
+    const patchBody = `
 Add-Type -TypeDefinition @"
 using System;
 using System.Diagnostics;
@@ -56,8 +57,7 @@ public class NvPatch {
     [DllImport("kernel32.dll")] public static extern bool VirtualProtectEx(IntPtr h, IntPtr a, uint n, uint np, out uint op);
     [DllImport("kernel32.dll")] public static extern bool CloseHandle(IntPtr h);
     public static int PatchProcess(int pid, bool enable) {
-        // PROCESS_VM_READ|PROCESS_VM_WRITE|PROCESS_VM_OPERATION|PROCESS_QUERY_INFORMATION
-        IntPtr hProc = OpenProcess(0x0438, false, (uint)pid);
+        IntPtr hProc = OpenProcess(0x1F0FFF, false, (uint)pid);
         if (hProc == IntPtr.Zero) return -(int)Marshal.GetLastWin32Error();
         try {
             Process proc = Process.GetProcessById(pid);
@@ -68,12 +68,10 @@ public class NvPatch {
             if (mod == null) return -2;
             int size = mod.ModuleMemorySize;
             byte[] buf = new byte[size];
-            int read = 0;
-            uint oldProt = 0;
+            int read = 0; uint oldProt = 0;
             VirtualProtectEx(hProc, mod.BaseAddress, (uint)size, 0x20, out oldProt);
             if (!ReadProcessMemory(hProc, mod.BaseAddress, buf, size, out read)) return -3;
             VirtualProtectEx(hProc, mod.BaseAddress, (uint)size, oldProt, out oldProt);
-            // Anchor: 48 8D 54 24 24 48 8B CD FF 15 [4 bytes] 85 C0 74
             byte[] anchor = new byte[] { 0x48,0x8D,0x54,0x24,0x24,0x48,0x8B,0xCD,0xFF,0x15 };
             for (int i = 0; i < read - 18; i++) {
                 bool match = true;
@@ -93,35 +91,58 @@ public class NvPatch {
     }
 }
 "@
-}
-$nvpids = @(${pids.join(",")})
-$enabled = $${enabled ? "true" : "false"}
-$patched = 0
-$errors = @()
+$nvpids = @(PIDS_PLACEHOLDER)
+$en = ENABLED_PLACEHOLDER
+$patched = 0; $errors = @()
 foreach ($nvpid in $nvpids) {
-    $r = [NvPatch]::PatchProcess($nvpid, $enabled)
-    if ($r -eq 1) { $patched++ }
-    elseif ($r -lt 0) { $errors += "pid=$nvpid code=$r" }
+    $r = [NvPatch]::PatchProcess($nvpid, $en)
+    if ($r -eq 1) { $patched++ } elseif ($r -lt 0) { $errors += "pid=$nvpid code=$r" }
 }
-Write-Output "patched=$patched errors=$($errors -join ',')"
+Set-Content -Path "OUT_PLACEHOLDER" -Value "patched=$patched errors=$($errors -join ',')"
 `.trim();
 
-    const patch = spawnSync("powershell.exe", ["-NoProfile", "-NonInteractive", "-Command", patchScript], {
-        timeout: 30000,
-        windowsHide: true,
-        encoding: "utf8"
-    });
+    let tmpDir: string;
+    let ps1Path: string;
+    let outPath: string;
+    try {
+        tmpDir = mkdtempSync(join(tmpdir(), "nvpatch-"));
+        ps1Path = join(tmpDir, "patch.ps1");
+        outPath = join(tmpDir, "result.txt");
+    } catch (e: any) {
+        return { success: false, error: "Could not create temp directory: " + e.message };
+    }
 
-    if (patch.error) return { success: false, error: "Patch failed: " + patch.error.message };
+    const script = patchBody
+        .replace("PIDS_PLACEHOLDER", pids.join(","))
+        .replace("ENABLED_PLACEHOLDER", enabled ? "$true" : "$false")
+        .replace("OUT_PLACEHOLDER", outPath.replace(/\\/g, "\\\\"));
 
-    const patchOut = (patch.stdout ?? "").trim();
-    const matchResult = patchOut.match(/patched=(\d+)/);
+    try {
+        writeFileSync(ps1Path, script, "utf8");
+    } catch (e: any) {
+        return { success: false, error: "Could not write patch script: " + e.message };
+    }
+
+    // Launch elevated — this shows a UAC prompt
+    const launcher = spawnSync("powershell.exe", [
+        "-NoProfile", "-NonInteractive", "-Command",
+        `Start-Process powershell.exe -ArgumentList '-NoProfile -NonInteractive -ExecutionPolicy Bypass -File \\"${ps1Path}\\"' -Verb RunAs -Wait`
+    ], { timeout: 30000, windowsHide: true, encoding: "utf8" });
+
+    let resultText = "";
+    try { resultText = require("original-fs").readFileSync(outPath, "utf8").trim(); } catch {}
+    try { unlinkSync(ps1Path); } catch {}
+    try { unlinkSync(outPath); } catch {}
+    try { require("original-fs").rmdirSync(tmpDir); } catch {}
+
+    if (launcher.error) return { success: false, error: "Elevation failed: " + launcher.error.message };
+
+    const matchResult = resultText.match(/patched=(\d+)/);
     const count = matchResult ? parseInt(matchResult[1], 10) : 0;
 
     if (count === 0) {
-        const stderr = (patch.stderr ?? "").trim();
-        const detail = [patchOut, stderr].filter(Boolean).join(" | ").slice(0, 300);
-        return { success: false, error: `Nvidia Proof failed. ${detail || "No output."}` };
+        const detail = [resultText, (launcher.stderr ?? "").trim()].filter(Boolean).join(" | ").slice(0, 300);
+        return { success: false, error: `Nvidia Proof failed. ${detail || "UAC cancelled or no output."}` };
     }
 
     return { success: true };
