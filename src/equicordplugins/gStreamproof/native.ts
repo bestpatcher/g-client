@@ -43,6 +43,7 @@ export function toggleNvidiaProof(_event: IpcMainInvokeEvent, enabled: unknown) 
     // The 74 at anchor+16 is the JZ that gates ShadowPlay capture.
     // Patching 74→EB (JZ→JMP) forces the skip branch unconditionally.
     const patchScript = `
+if (-not ([System.Management.Automation.PSTypeName]'NvPatch').Type) {
 Add-Type -TypeDefinition @"
 using System;
 using System.Runtime.InteropServices;
@@ -54,6 +55,7 @@ public class NvPatch {
     [DllImport("kernel32.dll")] public static extern bool CloseHandle(IntPtr h);
 }
 "@
+}
 $pids = @(${pids.join(",")})
 $enabled = $${enabled ? "true" : "false"}
 $patched = 0
