@@ -48,37 +48,50 @@ export function toggleNvidiaProof(_event: IpcMainInvokeEvent, enabled: unknown) 
     const patchBody = `
 Add-Type -TypeDefinition @"
 using System;
-using System.Diagnostics;
 using System.Runtime.InteropServices;
+using System.Text;
 public class NvPatch {
     [DllImport("kernel32.dll", SetLastError=true)] public static extern IntPtr OpenProcess(uint a, bool b, uint c);
     [DllImport("kernel32.dll")] public static extern bool ReadProcessMemory(IntPtr h, IntPtr a, byte[] buf, int n, out int r);
     [DllImport("kernel32.dll")] public static extern bool WriteProcessMemory(IntPtr h, IntPtr a, byte[] buf, int n, out int w);
     [DllImport("kernel32.dll")] public static extern bool VirtualProtectEx(IntPtr h, IntPtr a, uint n, uint np, out uint op);
     [DllImport("kernel32.dll")] public static extern bool CloseHandle(IntPtr h);
+    [DllImport("psapi.dll")] public static extern bool EnumProcessModulesEx(IntPtr h, IntPtr[] mods, uint cb, out uint needed, uint filter);
+    [DllImport("psapi.dll")] public static extern uint GetModuleFileNameExW(IntPtr h, IntPtr mod, StringBuilder name, uint size);
+    [DllImport("psapi.dll")] public static extern bool GetModuleInformation(IntPtr h, IntPtr mod, out MODULEINFO info, uint cb);
+    [StructLayout(LayoutKind.Sequential)] public struct MODULEINFO { public IntPtr BaseOfDll; public uint SizeOfImage; public IntPtr EntryPoint; }
     public static int PatchProcess(int pid, bool enable) {
         IntPtr hProc = OpenProcess(0x1F0FFF, false, (uint)pid);
         if (hProc == IntPtr.Zero) return -(int)Marshal.GetLastWin32Error();
         try {
-            Process proc = Process.GetProcessById(pid);
-            ProcessModule mod = null;
-            foreach (ProcessModule m in proc.Modules) {
-                if (m.ModuleName.Equals("nvd3dumx.dll", StringComparison.OrdinalIgnoreCase)) { mod = m; break; }
+            IntPtr modBase = IntPtr.Zero; uint modSize = 0;
+            IntPtr[] mods = new IntPtr[1024]; uint needed = 0;
+            if (!EnumProcessModulesEx(hProc, mods, (uint)(mods.Length * IntPtr.Size), out needed, 0x03)) return -2;
+            int count = (int)(needed / IntPtr.Size);
+            for (int k = 0; k < count; k++) {
+                StringBuilder name = new StringBuilder(260);
+                GetModuleFileNameExW(hProc, mods[k], name, 260);
+                string fname = name.ToString();
+                if (fname.EndsWith("nvd3dumx.dll", StringComparison.OrdinalIgnoreCase)) {
+                    MODULEINFO info;
+                    GetModuleInformation(hProc, mods[k], out info, (uint)Marshal.SizeOf(typeof(MODULEINFO)));
+                    modBase = info.BaseOfDll; modSize = info.SizeOfImage; break;
+                }
             }
-            if (mod == null) return -2;
-            int size = mod.ModuleMemorySize;
+            if (modBase == IntPtr.Zero) return -2;
+            int size = (int)modSize;
             byte[] buf = new byte[size];
             int read = 0; uint oldProt = 0;
-            VirtualProtectEx(hProc, mod.BaseAddress, (uint)size, 0x20, out oldProt);
-            if (!ReadProcessMemory(hProc, mod.BaseAddress, buf, size, out read)) return -3;
-            VirtualProtectEx(hProc, mod.BaseAddress, (uint)size, oldProt, out oldProt);
+            VirtualProtectEx(hProc, modBase, modSize, 0x20, out oldProt);
+            if (!ReadProcessMemory(hProc, modBase, buf, size, out read)) return -3;
+            VirtualProtectEx(hProc, modBase, modSize, oldProt, out oldProt);
             byte[] anchor = new byte[] { 0x48,0x8D,0x54,0x24,0x24,0x48,0x8B,0xCD,0xFF,0x15 };
             for (int i = 0; i < read - 18; i++) {
                 bool match = true;
                 for (int j = 0; j < anchor.Length; j++) if (buf[i+j] != anchor[j]) { match = false; break; }
                 if (!match) continue;
                 if (buf[i+14] != 0x85 || buf[i+15] != 0xC0 || buf[i+16] != 0x74) continue;
-                IntPtr addr = new IntPtr(mod.BaseAddress.ToInt64() + i + 16);
+                IntPtr addr = new IntPtr(modBase.ToInt64() + i + 16);
                 byte[] patch = enable ? new byte[]{ 0xEB } : new byte[]{ 0x74 };
                 int w = 0;
                 VirtualProtectEx(hProc, addr, 1, 0x40, out oldProt);
