@@ -50,14 +50,15 @@ using System;
 using System.Diagnostics;
 using System.Runtime.InteropServices;
 public class NvPatch {
-    [DllImport("kernel32.dll")] public static extern IntPtr OpenProcess(uint a, bool b, uint c);
+    [DllImport("kernel32.dll", SetLastError=true)] public static extern IntPtr OpenProcess(uint a, bool b, uint c);
     [DllImport("kernel32.dll")] public static extern bool ReadProcessMemory(IntPtr h, IntPtr a, byte[] buf, int n, out int r);
     [DllImport("kernel32.dll")] public static extern bool WriteProcessMemory(IntPtr h, IntPtr a, byte[] buf, int n, out int w);
     [DllImport("kernel32.dll")] public static extern bool VirtualProtectEx(IntPtr h, IntPtr a, uint n, uint np, out uint op);
     [DllImport("kernel32.dll")] public static extern bool CloseHandle(IntPtr h);
     public static int PatchProcess(int pid, bool enable) {
+        // PROCESS_VM_READ|PROCESS_VM_WRITE|PROCESS_VM_OPERATION|PROCESS_QUERY_INFORMATION
         IntPtr hProc = OpenProcess(0x0438, false, (uint)pid);
-        if (hProc == IntPtr.Zero) return -1;
+        if (hProc == IntPtr.Zero) return -(int)Marshal.GetLastWin32Error();
         try {
             Process proc = Process.GetProcessById(pid);
             ProcessModule mod = null;
