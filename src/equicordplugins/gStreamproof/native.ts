@@ -123,10 +123,10 @@ Set-Content -Path "OUT_PLACEHOLDER" -Value "patched=$patched errors=$($errors -j
         return { success: false, error: "Could not write patch script: " + e.message };
     }
 
-    // Launch elevated — this shows a UAC prompt
+    // Launch elevated — PowerShell Start-Process -Verb RunAs triggers UAC
     const launcher = spawnSync("powershell.exe", [
         "-NoProfile", "-NonInteractive", "-Command",
-        `Start-Process powershell.exe -ArgumentList '-NoProfile -NonInteractive -ExecutionPolicy Bypass -File \\"${ps1Path}\\"' -Verb RunAs -Wait`
+        `$p = Start-Process powershell.exe -ArgumentList '-NoProfile -NonInteractive -ExecutionPolicy Bypass -File "${ps1Path}"' -Verb RunAs -PassThru; $p.WaitForExit(20000)`
     ], { timeout: 30000, windowsHide: true, encoding: "utf8" });
 
     let resultText = "";
