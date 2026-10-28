@@ -111,12 +111,10 @@ Write-Output "patched=$patched"
     const count = match ? parseInt(match[1], 10) : 0;
 
     if (count === 0) {
-        // Could be a permissions issue or driver version mismatch
         const stderr = (patch.stderr ?? "").trim();
-        if (stderr.includes("Access") || stderr.includes("denied")) {
-            return { success: false, error: "Access denied. Try running Discord as administrator for Nvidia Proof." };
-        }
-        return { success: false, error: "Could not find the patch location in nvd3dumx.dll. Your NVIDIA driver version may not be supported." };
+        const stdout = (patch.stdout ?? "").trim();
+        const detail = [stdout, stderr].filter(Boolean).join(" | ").slice(0, 200);
+        return { success: false, error: `Nvidia Proof failed (patched=0). ${detail || "No output from patch script."}` };
     }
 
     return { success: true };
