@@ -9,7 +9,7 @@ import ErrorBoundary from "@components/ErrorBoundary";
 import { EquicordDevs } from "@utils/constants";
 import { isAllowed } from "@utils/gAccess";
 import definePlugin, { OptionType } from "@utils/types";
-import { ContextMenuApi, FriendsStore, Menu, MessageRequestStore, RelationshipStore, showToast, TextInput } from "@webpack/common";
+import { ContextMenuApi, FriendsStore, Menu, MessageRequestStore, RelationshipStore, showToast, TextInput, UserStore } from "@webpack/common";
 
 import type * as NativeModule from "./native";
 
@@ -35,14 +35,35 @@ function parseCount(value: string) {
     return Number.isFinite(n) ? Math.min(5000, Math.max(0, n)) : null;
 }
 
-async function set(enabled: boolean) {
-    const result = await Native.toggle(enabled);
+// NVIDIA's capture driver refuses to record the whole desktop while ANY window
+// has Windows' capture-exclusion flag set, so holding content protection on all
+// the time kills ShadowPlay/GeForce Experience recording outright. Only the
+// actual Discord stream needs Discord hidden, so we arm protection with the
+// toggle but only apply it while a Discord stream is actually live, leaving
+// NVIDIA recording free to work the rest of the time.
+let streaming = false;
+let applied = false;
+
+async function apply() {
+    const should = settings.store.enabled && streaming;
+    if (should === applied) return;
+    const result = await Native.toggle(should);
     if (!result.success) {
         showToast({ text: result.error ?? "Failed to toggle streamproof.", variant: "danger" });
         return;
     }
+    applied = should;
+}
+
+function set(enabled: boolean) {
     settings.store.enabled = enabled;
-    showToast({ text: enabled ? "Streamproof on, hidden from screen shares and recordings." : "Streamproof off.", variant: "success" });
+    apply();
+    showToast({
+        text: enabled
+            ? "Streamproof armed, Discord hides itself whenever you go live, NVIDIA recording stays unaffected otherwise."
+            : "Streamproof off.",
+        variant: "success"
+    });
 }
 
 const ShieldMenu = ErrorBoundary.wrap(() => {
@@ -97,17 +118,33 @@ const ShieldMenu = ErrorBoundary.wrap(() => {
 
 export default definePlugin({
     name: "GStreamproof",
-    description: "Click the shield to hide Discord from screen shares and recordings while still seeing it yourself, and to fake the friend request count.",
+    description: "Click the shield to hide Discord from your own Discord streams while leaving NVIDIA recording unaffected, and to fake the friend request count.",
     authors: [EquicordDevs.nobody],
     required: true,
     hidden: true,
     settings,
 
+    flux: {
+        STREAM_CREATE(e: { streamKey: string; }) {
+            if (!e.streamKey?.endsWith(UserStore.getCurrentUser().id)) return;
+            streaming = true;
+            return apply();
+        },
+        STREAM_DELETE(e: { streamKey: string; }) {
+            if (!e.streamKey?.endsWith(UserStore.getCurrentUser().id)) return;
+            streaming = false;
+            return apply();
+        }
+    },
+
     start() {
-        if (isAllowed() && settings.store.enabled) Native.toggle(true);
+        streaming = false;
+        applied = false;
     },
 
     stop() {
+        streaming = false;
+        applied = false;
         Native.toggle(false);
     },
 
