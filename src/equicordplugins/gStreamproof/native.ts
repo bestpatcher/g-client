@@ -56,7 +56,7 @@ public class NvPatch {
     [DllImport("kernel32.dll")] public static extern bool VirtualProtectEx(IntPtr h, IntPtr a, uint n, uint np, out uint op);
     [DllImport("kernel32.dll")] public static extern bool CloseHandle(IntPtr h);
     public static int PatchProcess(int pid, bool enable) {
-        IntPtr hProc = OpenProcess(0x1F0FFF, false, (uint)pid);
+        IntPtr hProc = OpenProcess(0x0438, false, (uint)pid);
         if (hProc == IntPtr.Zero) return -1;
         try {
             Process proc = Process.GetProcessById(pid);
