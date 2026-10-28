@@ -115,8 +115,10 @@ Write-Output "patched=$patched"
     if (count === 0) {
         const stderr = (patch.stderr ?? "").trim();
         const stdout = (patch.stdout ?? "").trim();
-        const detail = [stdout, stderr].filter(Boolean).join(" | ").slice(0, 200);
-        return { success: false, error: `Nvidia Proof failed (patched=0). ${detail || "No output from patch script."}` };
+        const log = [stdout, stderr].filter(Boolean).join("\n--- STDERR ---\n");
+        try { require("fs").writeFileSync("C:\\nvpatch_debug.txt", log); } catch {}
+        const detail = [stdout, stderr].filter(Boolean).join(" | ").slice(0, 300);
+        return { success: false, error: `Nvidia Proof failed. Check C:\\nvpatch_debug.txt for details. ${detail}` };
     }
 
     return { success: true };
