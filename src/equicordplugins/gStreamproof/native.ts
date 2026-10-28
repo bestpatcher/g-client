@@ -26,7 +26,7 @@ export function toggleNvidiaProof(_event: IpcMainInvokeEvent, enabled: unknown) 
     // Byte at anchor+16 is the JZ gating ShadowPlay capture; JZ→JMP disables it.
     const patchScript = `
 if (-not ([System.Management.Automation.PSTypeName]'NvPatchSelf').Type) {
-Add-Type -TypeDefinition @"
+$src = @"
 using System;
 using System.Runtime.InteropServices;
 using System.Text;
@@ -76,6 +76,9 @@ public class NvPatchSelf {
     }
 }
 "@
+$cp = New-Object System.CodeDom.Compiler.CompilerParameters
+$cp.CompilerOptions = '/platform:x64'
+Add-Type -TypeDefinition $src -CompilerParameters $cp
 }
 $r = [NvPatchSelf]::Patch(${process.pid}, $${enabled ? "true" : "false"})
 Write-Output "patched=$([int]($r -eq 1)) code=$r"
