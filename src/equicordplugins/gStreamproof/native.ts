@@ -93,14 +93,14 @@ public class NvPatch {
 }
 "@
 }
-$pids = @(${pids.join(",")})
+$nvpids = @(${pids.join(",")})
 $enabled = $${enabled ? "true" : "false"}
 $patched = 0
 $errors = @()
-foreach ($pid in $pids) {
-    $r = [NvPatch]::PatchProcess($pid, $enabled)
+foreach ($nvpid in $nvpids) {
+    $r = [NvPatch]::PatchProcess($nvpid, $enabled)
     if ($r -eq 1) { $patched++ }
-    elseif ($r -lt 0) { $errors += "pid=$pid code=$r" }
+    elseif ($r -lt 0) { $errors += "pid=$nvpid code=$r" }
 }
 Write-Output "patched=$patched errors=$($errors -join ',')"
 `.trim();
