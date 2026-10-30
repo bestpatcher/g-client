@@ -185,7 +185,7 @@ function captureSender(ctx: unknown, args: ArrayLike<unknown> | undefined) {
             if (name === "constructor") continue;
             try {
                 const fn = target[name];
-                if (typeof fn === "function" && Function.prototype.toString.call(fn).includes("self_deaf")) {
+                if (typeof fn === "function" && /self_deaf|selfDeaf/.test(Function.prototype.toString.call(fn))) {
                     senderName = name;
                     break;
                 }
@@ -430,11 +430,11 @@ export default definePlugin({
             noWarn: true,
             replacement: [
                 {
-                    match: /self_mute:((?:!!)?\i(?:\.\i)*)/,
+                    match: /self_mute:((?:[^,{}()]|\([^()]*\))+)/,
                     replace: "self_mute:$self.fakeMuteValue($1,this,arguments)"
                 },
                 {
-                    match: /self_deaf:((?:!!)?\i(?:\.\i)*)/,
+                    match: /self_deaf:((?:[^,{}()]|\([^()]*\))+)/,
                     replace: "self_deaf:$self.fakeDeafenValue($1,this,arguments)"
                 }
             ]
