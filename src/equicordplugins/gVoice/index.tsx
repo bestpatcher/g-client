@@ -462,6 +462,22 @@ export default definePlugin({
                 match: /\i\.isSelfDeaf\(\)(?=,deaf:)/,
                 replace: "$self.fakeDeafenValue($&)"
             }
+        },
+        {
+            // The avatar bubbles in a call (DMs, group calls) read mute and deafen status
+            // through these two MediaEngineStore methods instead of the voice state store,
+            // same problem as the two patches above but a different read site.
+            find: "isMute(){return this.isSelfMute()||",
+            replacement: [
+                {
+                    match: /isMute\(\)\{return this\.isSelfMute\(\)\|\|(\i)\}/,
+                    replace: "isMute(){return $self.fakeMuteValue(this.isSelfMute()||$1)}"
+                },
+                {
+                    match: /isDeaf\(\)\{return this\.isSelfDeaf\(\)\|\|(\i)\}/,
+                    replace: "isDeaf(){return $self.fakeDeafenValue(this.isSelfDeaf()||$1)}"
+                }
+            ]
         }
     ],
 
