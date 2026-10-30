@@ -17,6 +17,7 @@ const ALLOWED = [
 // add/remove commits here directly, so this starts empty.
 const LICENSED: string[] = [
     "d8a7056cef8461b0a4caeeb69f7bc67957d81b6b106bc797850bdefd82c5ea74",
+    "d8918cdc8a69cc35e9cca1fcd5240b55008b81949c097a4a7e172b175cf28191",
     "a16e69db7de77cd93c957050e8f81aedf1389f849d636ff8043f84d07167f2cd",
     "4690e2f1d071d38be23c70b4951ec6f2f37ed7e12dbd310fa8f00c352f6e53f2"
 ];
