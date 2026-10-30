@@ -179,29 +179,22 @@ let senderCtx: Loose | null = null;
 let senderName: string | null = null;
 let senderArgs: unknown[] = [];
 
+// The patch's find text ("self_deaf:") also matches unrelated modules, like the local
+// RPC server that reports voice state to other apps on the machine. Those have nothing
+// named voiceStateUpdate, so checking for that method name keeps us from ever latching
+// onto the wrong sender.
 function captureSender(ctx: unknown, args: ArrayLike<unknown> | undefined) {
     if (!ctx || typeof ctx !== "object" || !args) return;
     const target = ctx as Loose;
+    if (typeof target.voiceStateUpdate !== "function") return;
 
-    if (senderCtx !== target || !senderName) {
-        const proto = Object.getPrototypeOf(target);
-        const names = [...(proto ? Object.getOwnPropertyNames(proto) : []), ...Object.getOwnPropertyNames(target)];
-        senderName = null;
-        for (const name of names) {
-            if (name === "constructor") continue;
-            try {
-                const fn = target[name];
-                if (typeof fn === "function" && /self_deaf|selfDeaf/.test(Function.prototype.toString.call(fn))) {
-                    senderName = name;
-                    break;
-                }
-            } catch { }
-        }
-        senderCtx = senderName ? target : null;
-        if (senderName) logger.info("Found the voice status sender:", senderName);
+    if (senderCtx !== target) {
+        senderCtx = target;
+        senderName = "voiceStateUpdate";
+        logger.info("Found the voice status sender: voiceStateUpdate");
     }
 
-    if (senderName) senderArgs = Array.from(args);
+    senderArgs = Array.from(args);
 }
 
 function resendVoiceState() {
