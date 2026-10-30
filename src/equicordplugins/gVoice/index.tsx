@@ -201,10 +201,17 @@ function resendVoiceState() {
     if (senderCtx && senderName && SelectedChannelStore.getVoiceChannelId()) {
         try {
             senderCtx[senderName](...senderArgs);
+            logger.info("Resent voice state via", senderName, "args:", senderArgs);
             return;
         } catch (e) {
             logger.error("Failed to resend voice status", e);
         }
+    } else {
+        logger.warn("Could not resend voice state", {
+            hasSenderCtx: Boolean(senderCtx),
+            senderName,
+            inVoiceChannel: Boolean(SelectedChannelStore.getVoiceChannelId())
+        });
     }
     if (!gatewaySocket || !realVoiceState || gatewaySocket.readyState !== WebSocket.OPEN) return;
     gatewaySocket.send(JSON.stringify({ op: 4, d: realVoiceState }));
