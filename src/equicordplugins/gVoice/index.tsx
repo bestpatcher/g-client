@@ -447,39 +447,6 @@ export default definePlugin({
             ]
         },
         {
-            // Your own mute icon in a call reads the real mic state directly instead of
-            // the voice state store, so the gateway fake above doesn't show it to you.
-            find: "isSelfMutedTemporarily(),h=",
-            replacement: {
-                match: /(\i)\.isSelfMute\(\)\|\|\1\.isSelfMutedTemporarily\(\)/,
-                replace: "$self.fakeMuteValue($&)"
-            }
-        },
-        {
-            // Same as above, but for your own deafen icon in a call.
-            find: "isSelfDeaf(),deaf:l?.deaf",
-            replacement: {
-                match: /\i\.isSelfDeaf\(\)(?=,deaf:)/,
-                replace: "$self.fakeDeafenValue($&)"
-            }
-        },
-        {
-            // The avatar bubbles in a call (DMs, group calls) read mute and deafen status
-            // through these two MediaEngineStore methods instead of the voice state store,
-            // same problem as the two patches above but a different read site.
-            find: "isMute(){return this.isSelfMute()||",
-            replacement: [
-                {
-                    match: /isMute\(\)\{return this\.isSelfMute\(\)\|\|(\i)\}/,
-                    replace: "isMute(){return $self.fakeMuteValue(this.isSelfMute()||$1)}"
-                },
-                {
-                    match: /isDeaf\(\)\{return this\.isSelfDeaf\(\)\|\|(\i)\}/,
-                    replace: "isDeaf(){return $self.fakeDeafenValue(this.isSelfDeaf()||$1)}"
-                }
-            ]
-        },
-        {
             // The call bubble avatars (DMs, group calls) read mute and deafen status off
             // each participant's own voice state object, including yours, so the fake has
             // to be scoped to your own user id here or everyone would show as muted.
