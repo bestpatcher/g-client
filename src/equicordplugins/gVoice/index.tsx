@@ -14,7 +14,7 @@ import { isLicensed } from "@utils/gAccess";
 import { Logger } from "@utils/Logger";
 import definePlugin, { OptionType } from "@utils/types";
 import { find } from "@webpack";
-import { FluxDispatcher, MediaEngineStore, Menu, SelectedChannelStore, showToast } from "@webpack/common";
+import { FluxDispatcher, MediaEngineStore, Menu, SelectedChannelStore, showToast, UserStore } from "@webpack/common";
 
 const logger = new Logger("GVoice");
 
@@ -478,6 +478,22 @@ export default definePlugin({
                     replace: "isDeaf(){return $self.fakeDeafenValue(this.isSelfDeaf()||$1)}"
                 }
             ]
+        },
+        {
+            // The call bubble avatars (DMs, group calls) read mute and deafen status off
+            // each participant's own voice state object, including yours, so the fake has
+            // to be scoped to your own user id here or everyone would show as muted.
+            find: "isVoiceMuted(){return this.selfMute||this.mute||this.suppress||null!=this.requestToSpeakTimestamp}isVoiceDeafened(){return this.selfDeaf||this.deaf}",
+            replacement: [
+                {
+                    match: /isVoiceMuted\(\)\{return this\.selfMute\|\|this\.mute\|\|this\.suppress\|\|null!=this\.requestToSpeakTimestamp\}/,
+                    replace: "isVoiceMuted(){return $self.fakeVoiceStateMuted(this,this.selfMute||this.mute||this.suppress||null!=this.requestToSpeakTimestamp)}"
+                },
+                {
+                    match: /isVoiceDeafened\(\)\{return this\.selfDeaf\|\|this\.deaf\}/,
+                    replace: "isVoiceDeafened(){return $self.fakeVoiceStateDeafened(this,this.selfDeaf||this.deaf)}"
+                }
+            ]
         }
     ],
 
@@ -496,6 +512,16 @@ export default definePlugin({
         recordTrace(`deaf real=${real}`);
         captureSender(ctx, args);
         if (!isLicensed()) return real;
+        return settings.store.fakeDeafen ? true : real;
+    },
+
+    fakeVoiceStateMuted(voiceState: Loose, real: boolean) {
+        if (!isLicensed() || voiceState?.userId !== UserStore.getCurrentUser().id) return real;
+        return settings.store.fakeMute || settings.store.fakeDeafen ? true : real;
+    },
+
+    fakeVoiceStateDeafened(voiceState: Loose, real: boolean) {
+        if (!isLicensed() || voiceState?.userId !== UserStore.getCurrentUser().id) return real;
         return settings.store.fakeDeafen ? true : real;
     },
 
