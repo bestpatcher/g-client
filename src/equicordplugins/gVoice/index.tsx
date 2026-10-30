@@ -65,6 +65,12 @@ const settings = definePluginSettings({
 });
 
 let boostResult = "not applied";
+const callTraces: string[] = [];
+function recordTrace(label: string) {
+    const stack = new Error().stack?.split("\n").slice(2, 6).join(" | ") ?? "no stack";
+    callTraces.push(`${label}: ${stack}`);
+    if (callTraces.length > 12) callTraces.shift();
+}
 
 // Discord clamps its own store to 100, so values above that go straight to the audio engine.
 function applyMicBoost(volume: number = settings.store.micBoost) {
@@ -311,7 +317,8 @@ function buildReport() {
                 ? Object.getOwnPropertyNames(Object.getPrototypeOf(first)).filter(n => /option|encoder|transport|audio|channel|stereo/i.test(n))
                 : null
         },
-        transportLog
+        transportLog,
+        callTraces
     }, null, 2);
 }
 
@@ -444,6 +451,7 @@ export default definePlugin({
     fakeMuteValue(real: boolean, ctx?: unknown, args?: ArrayLike<unknown>) {
         patchHits++;
         lastRealMute = real;
+        recordTrace(`mute real=${real}`);
         captureSender(ctx, args);
         if (!isLicensed()) return real;
         return settings.store.fakeMute || settings.store.fakeDeafen ? true : real;
@@ -452,6 +460,7 @@ export default definePlugin({
     fakeDeafenValue(real: boolean, ctx?: unknown, args?: ArrayLike<unknown>) {
         patchHits++;
         lastRealDeaf = real;
+        recordTrace(`deaf real=${real}`);
         captureSender(ctx, args);
         if (!isLicensed()) return real;
         return settings.store.fakeDeafen ? true : real;
