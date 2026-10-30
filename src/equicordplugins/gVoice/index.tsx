@@ -445,6 +445,23 @@ export default definePlugin({
                     replace: "self_deaf:$self.fakeDeafenValue($1,this,arguments)"
                 }
             ]
+        },
+        {
+            // Your own mute icon in a call reads the real mic state directly instead of
+            // the voice state store, so the gateway fake above doesn't show it to you.
+            find: "isSelfMutedTemporarily(),h=",
+            replacement: {
+                match: /(\i)\.isSelfMute\(\)\|\|\1\.isSelfMutedTemporarily\(\)/,
+                replace: "$self.fakeMuteValue($&)"
+            }
+        },
+        {
+            // Same as above, but for your own deafen icon in a call.
+            find: "isSelfDeaf(),deaf:l?.deaf",
+            replacement: {
+                match: /\i\.isSelfDeaf\(\)(?=,deaf:)/,
+                replace: "$self.fakeDeafenValue($&)"
+            }
         }
     ],
 
