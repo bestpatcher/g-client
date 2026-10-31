@@ -113,16 +113,7 @@ async function messageDeleteBulkHandler({ channelId, guildId, ids }: MessageDele
 
     await idb.addMessagesBulkIDB(messages);
 
-    if (messages.length > 0 && settings.store.timeBasedCleanupMinutes > 0) {
-        const currentChannelId = SelectedChannelStore.getChannelId();
-        const cutoffTime = new Date(Date.now() - settings.store.timeBasedCleanupMinutes * 60 * 1000).toISOString();
-        const oldGuildMessages = await idb.getOlderThanTimestampForGuildsIDB(cutoffTime, currentChannelId, settings.store.preserveCurrentChannel);
-
-        if (oldGuildMessages.length > 0) {
-            Flogger.info(`Deleting ${oldGuildMessages.length} old server messages older than ${settings.store.timeBasedCleanupMinutes} minutes (bulk cleanup)`);
-            await idb.deleteMessagesBulkIDB(oldGuildMessages.map(m => m.message_id));
-        }
-    }
+    // See LoggedMessageManager.addMessage: no auto-deletion here either.
 }
 
 async function messageUpdateHandler(payload: MessageUpdatePayload) {

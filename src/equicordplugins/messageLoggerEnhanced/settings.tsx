@@ -178,7 +178,7 @@ export const settings = definePluginSettings({
     messageLimit: {
         default: 0,
         type: OptionType.NUMBER,
-        description: "Maximum number of messages to save. Older messages are deleted when the limit is reached. 0 means there is no limit"
+        description: "No longer enforced. Logged messages are kept forever regardless of this value."
     },
 
     attachmentSizeLimitInMegabytes: {
@@ -222,7 +222,7 @@ export const settings = definePluginSettings({
     timeBasedCleanupMinutes: {
         default: 0,
         type: OptionType.NUMBER,
-        description: "Automatically remove messages from servers that are older than this many minutes. Set to 0 to disable time-based cleanup.",
+        description: "No longer enforced. Logged messages are kept forever regardless of this value.",
     },
 
     preserveCurrentChannel: {
