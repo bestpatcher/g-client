@@ -406,6 +406,10 @@ export default definePlugin({
 
         Native.init();
 
+        // Without this, Chromium treats the log database as evictable and can wipe it
+        // under storage pressure with no warning.
+        navigator.storage?.persist?.().catch(e => Flogger.error("Failed to request persistent storage", e));
+
         if (settings.store.clearLogsOnRestart && !didClearLogsOnStartup) {
             try {
                 await clearLogs(false);
