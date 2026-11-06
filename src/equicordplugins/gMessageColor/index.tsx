@@ -62,13 +62,8 @@ export default definePlugin({
     start: apply,
     stop: () => disableStyle(STYLE),
 
-    patches: [{
-        find: "Message must not be a thread starter message",
-        replacement: {
-            match: /\)\("li",\{/,
-            replace: '$&"data-gown":$self.own(arguments[0].message),'
-        }
-    }],
+    // DIAGNOSTIC: off during the same patch-set sweep described in gVoice.
+    patches: [],
 
     own: (message: Message) => message.author.id === UserStore.getCurrentUser().id || undefined,
 

@@ -82,22 +82,8 @@ export default definePlugin({
         render: () => <ShieldButton />
     },
 
-    patches: [
-        {
-            find: "getPendingCount(){",
-            replacement: {
-                match: /(?<=getPendingCount\(\)\{)/,
-                replace: "const $gCount=$self.getFriendCountOverride();if($gCount!=null)return $gCount;"
-            }
-        },
-        {
-            find: "getMessageRequestsCount(){",
-            replacement: {
-                match: /(?<=getMessageRequestsCount\(\)\{)/,
-                replace: "const $gCount=$self.getMessageCountOverride();if($gCount!=null)return $gCount;"
-            }
-        }
-    ],
+    // DIAGNOSTIC: off during the same patch-set sweep described in gVoice.
+    patches: [],
 
     getFriendCountOverride() {
         return isAllowed() ? sanitizeCount(streamproofSettings.store.friendCount) : null;

@@ -23,15 +23,8 @@ export default definePlugin({
     required: true,
     hidden: true,
 
-    patches: [
-        {
-            find: '"dm-quick-launcher"===',
-            replacement: {
-                match: /\i\.\i\.string\(\i\.\i#{intl::DIRECT_MESSAGES}\)/,
-                replace: "$self.title()"
-            }
-        }
-    ],
+    // DIAGNOSTIC: off during the same patch-set sweep described in gVoice.
+    patches: [],
 
     start() {
         removeProvider = addSurfacePropsProvider("headerBar", () => ({ "data-gheader": "true" }));

@@ -429,40 +429,10 @@ export default definePlugin({
     enabledByDefault: true,
     settings,
 
-    patches: [
-        {
-            // Discord builds its voice status message with these exact field names
-            find: "self_deaf:",
-            all: true,
-            noWarn: true,
-            replacement: [
-                {
-                    match: /self_mute:((?:[^,{}()]|\([^()]*\))+)/,
-                    replace: "self_mute:$self.fakeMuteValue($1,this,arguments)"
-                },
-                {
-                    match: /self_deaf:((?:[^,{}()]|\([^()]*\))+)/,
-                    replace: "self_deaf:$self.fakeDeafenValue($1,this,arguments)"
-                }
-            ]
-        },
-        {
-            // The call bubble avatars (DMs, group calls) read mute and deafen status off
-            // each participant's own voice state object, including yours, so the fake has
-            // to be scoped to your own user id here or everyone would show as muted.
-            find: "isVoiceMuted(){return this.selfMute||this.mute||this.suppress||null!=this.requestToSpeakTimestamp}isVoiceDeafened(){return this.selfDeaf||this.deaf}",
-            replacement: [
-                {
-                    match: /isVoiceMuted\(\)\{return this\.selfMute\|\|this\.mute\|\|this\.suppress\|\|null!=this\.requestToSpeakTimestamp\}/,
-                    replace: "isVoiceMuted(){return $self.fakeVoiceStateMuted(this,this.selfMute||this.mute||this.suppress||null!=this.requestToSpeakTimestamp)}"
-                },
-                {
-                    match: /isVoiceDeafened\(\)\{return this\.selfDeaf\|\|this\.deaf\}/,
-                    replace: "isVoiceDeafened(){return $self.fakeVoiceStateDeafened(this,this.selfDeaf||this.deaf)}"
-                }
-            ]
-        }
-    ],
+    // DIAGNOSTIC: every gVoice patch is off right now while we isolate a client-wide login
+    // hang. Nothing here was confirmed broken, this is part of a sweep disabling every
+    // custom $G patch at once to find out whether the hang is in our patch set at all.
+    patches: [],
 
     fakeMuteValue(real: boolean, ctx?: unknown, args?: ArrayLike<unknown>) {
         patchHits++;
