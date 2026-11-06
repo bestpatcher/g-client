@@ -180,13 +180,18 @@ let senderName: string | null = null;
 let senderArgs: unknown[] = [];
 
 // The patch's find text ("self_deaf:") also matches unrelated modules, like the local
-// RPC server that reports voice state to other apps on the machine. Those have nothing
-// named voiceStateUpdate, so checking for that method name keeps us from ever latching
-// onto the wrong sender.
+// RPC server that reports voice state to other apps on the machine, and modules where
+// self_deaf/self_mute just happen to be unrelated object keys holding something other
+// than a boolean (a class reference, say). Those have nothing named voiceStateUpdate,
+// so checking for that method name keeps us from ever latching onto the wrong sender,
+// or overwriting a value that was never ours to touch.
+function isVoiceStateSender(ctx: unknown): ctx is Loose {
+    return Boolean(ctx) && typeof ctx === "object" && typeof (ctx as Loose).voiceStateUpdate === "function";
+}
+
 function captureSender(ctx: unknown, args: ArrayLike<unknown> | undefined) {
-    if (!ctx || typeof ctx !== "object" || !args) return;
-    const target = ctx as Loose;
-    if (typeof target.voiceStateUpdate !== "function") return;
+    if (!isVoiceStateSender(ctx) || !args) return;
+    const target = ctx;
 
     if (senderCtx !== target) {
         senderCtx = target;
@@ -469,7 +474,10 @@ export default definePlugin({
         lastRealMute = real;
         recordTrace(`mute real=${real}`);
         captureSender(ctx, args);
-        if (!isLicensed()) return real;
+        // Only the real voice-state module ever gets its value swapped. Every other
+        // module the broad "self_deaf:" patch also touched gets its original value
+        // back untouched, whatever type that value actually is.
+        if (!isLicensed() || !isVoiceStateSender(ctx)) return real;
         return settings.store.fakeMute || settings.store.fakeDeafen ? true : real;
     },
 
@@ -478,7 +486,7 @@ export default definePlugin({
         lastRealDeaf = real;
         recordTrace(`deaf real=${real}`);
         captureSender(ctx, args);
-        if (!isLicensed()) return real;
+        if (!isLicensed() || !isVoiceStateSender(ctx)) return real;
         return settings.store.fakeDeafen ? true : real;
     },
 
