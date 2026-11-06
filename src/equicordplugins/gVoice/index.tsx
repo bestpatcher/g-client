@@ -474,10 +474,13 @@ export default definePlugin({
         lastRealMute = real;
         recordTrace(`mute real=${real}`);
         captureSender(ctx, args);
-        // Only the real voice-state module ever gets its value swapped. Every other
-        // module the broad "self_deaf:" patch also touched gets its original value
-        // back untouched, whatever type that value actually is.
-        if (!isLicensed() || !isVoiceStateSender(ctx)) return real;
+        // The broad "self_deaf:"/"self_mute:" patch touches every module with those field
+        // names, not just the voice gateway module, and some of those unrelated modules can
+        // use ctx shapes that also happen to carry a voiceStateUpdate method. The one check
+        // that's actually bulletproof regardless of module: a real mute/deafen flag is always
+        // a boolean. Anything else (a class reference, a component, whatever) was never ours
+        // to touch, so it always passes straight through untouched.
+        if (typeof real !== "boolean" || !isLicensed() || !isVoiceStateSender(ctx)) return real;
         return settings.store.fakeMute || settings.store.fakeDeafen ? true : real;
     },
 
@@ -486,7 +489,7 @@ export default definePlugin({
         lastRealDeaf = real;
         recordTrace(`deaf real=${real}`);
         captureSender(ctx, args);
-        if (!isLicensed() || !isVoiceStateSender(ctx)) return real;
+        if (typeof real !== "boolean" || !isLicensed() || !isVoiceStateSender(ctx)) return real;
         return settings.store.fakeDeafen ? true : real;
     },
 
