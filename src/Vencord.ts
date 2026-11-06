@@ -51,18 +51,6 @@ if (IS_REPORTER) {
     require("./debug/runReporter");
 }
 
-// TEMPORARY DIAGNOSTIC: the terminal log capture only shows the bare "Uncaught TypeError"
-// message with no file, line or stack, which isn't enough to find what's actually throwing
-// during a client-wide login hang. This logs full detail for every uncaught error so the
-// next terminal capture names the actual module and call site. Remove once the hang is found.
-window.addEventListener("error", e => {
-    console.error(
-        "[$G DIAGNOSTIC] Uncaught error:", e.message,
-        "\nat:", `${e.filename}:${e.lineno}:${e.colno}`,
-        "\nstack:", e.error?.stack ?? "(no stack available)"
-    );
-});
-
 async function syncSettings() {
     const hasCloudAuth = await dsGet("Vencord_cloudSecret");
     if (!hasCloudAuth) {
