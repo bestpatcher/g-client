@@ -434,31 +434,15 @@ export default definePlugin({
     enabledByDefault: true,
     settings,
 
-    patches: [
-        // The old all:true "self_deaf:" patch that drove outgoing fake mute/deafen is gone.
-        // It matched every module containing that text with no way to scope it to just the
-        // real voice-state module, and Discord's own READY payload builds its voice_states
-        // array through the same VoiceState class, so a collision there could break READY
-        // processing and block CONNECTION_OPEN - which the whole client's WebpackReady stage
-        // waits on. Outgoing fake mute/deafen is off until this gets rebuilt scoped to the
-        // one module it actually belongs on.
-        {
-            // The call bubble avatars (DMs, group calls) read mute and deafen status off
-            // each participant's own voice state object, including yours, so the fake has
-            // to be scoped to your own user id here or everyone would show as muted.
-            find: "isVoiceMuted(){return this.selfMute||this.mute||this.suppress||null!=this.requestToSpeakTimestamp}isVoiceDeafened(){return this.selfDeaf||this.deaf}",
-            replacement: [
-                {
-                    match: /isVoiceMuted\(\)\{return this\.selfMute\|\|this\.mute\|\|this\.suppress\|\|null!=this\.requestToSpeakTimestamp\}/,
-                    replace: "isVoiceMuted(){return $self.fakeVoiceStateMuted(this,this.selfMute||this.mute||this.suppress||null!=this.requestToSpeakTimestamp)}"
-                },
-                {
-                    match: /isVoiceDeafened\(\)\{return this\.selfDeaf\|\|this\.deaf\}/,
-                    replace: "isVoiceDeafened(){return $self.fakeVoiceStateDeafened(this,this.selfDeaf||this.deaf)}"
-                }
-            ]
-        }
-    ],
+    // Both patches that used to drive fake mute/deafen are gone. The first touched every
+    // module containing "self_deaf:" with no way to scope it to just the real voice-state
+    // module. The second patched the VoiceState class itself (isVoiceMuted/isVoiceDeafened),
+    // and Discord's own READY payload constructs that exact class for every entry in a
+    // guild's voice_states array - so a bad interaction there blocks READY processing and
+    // with it CONNECTION_OPEN, which the whole client's WebpackReady stage waits on. Removing
+    // the first patch alone did not fix a client-wide login hang, so this one is suspect too.
+    // Fake mute/deafen is off until this gets rebuilt and verified not to touch that class.
+    patches: [],
 
     fakeMuteValue(real: boolean, ctx?: unknown, args?: ArrayLike<unknown>) {
         patchHits++;
