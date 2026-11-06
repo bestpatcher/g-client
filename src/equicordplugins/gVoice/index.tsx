@@ -435,22 +435,13 @@ export default definePlugin({
     settings,
 
     patches: [
-        {
-            // Discord builds its voice status message with these exact field names
-            find: "self_deaf:",
-            all: true,
-            noWarn: true,
-            replacement: [
-                {
-                    match: /self_mute:((?:[^,{}()]|\([^()]*\))+)/,
-                    replace: "self_mute:$self.fakeMuteValue($1,this,arguments)"
-                },
-                {
-                    match: /self_deaf:((?:[^,{}()]|\([^()]*\))+)/,
-                    replace: "self_deaf:$self.fakeDeafenValue($1,this,arguments)"
-                }
-            ]
-        },
+        // The old all:true "self_deaf:" patch that drove outgoing fake mute/deafen is gone.
+        // It matched every module containing that text with no way to scope it to just the
+        // real voice-state module, and Discord's own READY payload builds its voice_states
+        // array through the same VoiceState class, so a collision there could break READY
+        // processing and block CONNECTION_OPEN - which the whole client's WebpackReady stage
+        // waits on. Outgoing fake mute/deafen is off until this gets rebuilt scoped to the
+        // one module it actually belongs on.
         {
             // The call bubble avatars (DMs, group calls) read mute and deafen status off
             // each participant's own voice state object, including yours, so the fake has
