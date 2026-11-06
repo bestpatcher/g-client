@@ -20,7 +20,7 @@ export default definePlugin({
         {
             find: '.dispatch({type:"TYPING_START_LOCAL"',
             replacement: {
-                match: /startTyping\(\i\){.+?},stop/,
+                match: /startTyping\(\i\)\{.{0,300}?\.dispatch\(\{type:"TYPING_START_LOCAL".{0,100}?\},stop/,
                 replace: "startTyping:$self.startTyping,stop"
             }
         }
