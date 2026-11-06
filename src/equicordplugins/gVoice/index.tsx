@@ -180,18 +180,13 @@ let senderName: string | null = null;
 let senderArgs: unknown[] = [];
 
 // The patch's find text ("self_deaf:") also matches unrelated modules, like the local
-// RPC server that reports voice state to other apps on the machine, and modules where
-// self_deaf/self_mute just happen to be unrelated object keys holding something other
-// than a boolean (a class reference, say). Those have nothing named voiceStateUpdate,
-// so checking for that method name keeps us from ever latching onto the wrong sender,
-// or overwriting a value that was never ours to touch.
-function isVoiceStateSender(ctx: unknown): ctx is Loose {
-    return Boolean(ctx) && typeof ctx === "object" && typeof (ctx as Loose).voiceStateUpdate === "function";
-}
-
+// RPC server that reports voice state to other apps on the machine. Those have nothing
+// named voiceStateUpdate, so checking for that method name keeps us from ever latching
+// onto the wrong sender.
 function captureSender(ctx: unknown, args: ArrayLike<unknown> | undefined) {
-    if (!isVoiceStateSender(ctx) || !args) return;
-    const target = ctx;
+    if (!ctx || typeof ctx !== "object" || !args) return;
+    const target = ctx as Loose;
+    if (typeof target.voiceStateUpdate !== "function") return;
 
     if (senderCtx !== target) {
         senderCtx = target;
@@ -434,28 +429,47 @@ export default definePlugin({
     enabledByDefault: true,
     settings,
 
-    // Both patches that used to drive fake mute/deafen are gone. The first touched every
-    // module containing "self_deaf:" with no way to scope it to just the real voice-state
-    // module. The second patched the VoiceState class itself (isVoiceMuted/isVoiceDeafened),
-    // and Discord's own READY payload constructs that exact class for every entry in a
-    // guild's voice_states array - so a bad interaction there blocks READY processing and
-    // with it CONNECTION_OPEN, which the whole client's WebpackReady stage waits on. Removing
-    // the first patch alone did not fix a client-wide login hang, so this one is suspect too.
-    // Fake mute/deafen is off until this gets rebuilt and verified not to touch that class.
-    patches: [],
+    patches: [
+        {
+            // Discord builds its voice status message with these exact field names
+            find: "self_deaf:",
+            all: true,
+            noWarn: true,
+            replacement: [
+                {
+                    match: /self_mute:((?:[^,{}()]|\([^()]*\))+)/,
+                    replace: "self_mute:$self.fakeMuteValue($1,this,arguments)"
+                },
+                {
+                    match: /self_deaf:((?:[^,{}()]|\([^()]*\))+)/,
+                    replace: "self_deaf:$self.fakeDeafenValue($1,this,arguments)"
+                }
+            ]
+        },
+        {
+            // The call bubble avatars (DMs, group calls) read mute and deafen status off
+            // each participant's own voice state object, including yours, so the fake has
+            // to be scoped to your own user id here or everyone would show as muted.
+            find: "isVoiceMuted(){return this.selfMute||this.mute||this.suppress||null!=this.requestToSpeakTimestamp}isVoiceDeafened(){return this.selfDeaf||this.deaf}",
+            replacement: [
+                {
+                    match: /isVoiceMuted\(\)\{return this\.selfMute\|\|this\.mute\|\|this\.suppress\|\|null!=this\.requestToSpeakTimestamp\}/,
+                    replace: "isVoiceMuted(){return $self.fakeVoiceStateMuted(this,this.selfMute||this.mute||this.suppress||null!=this.requestToSpeakTimestamp)}"
+                },
+                {
+                    match: /isVoiceDeafened\(\)\{return this\.selfDeaf\|\|this\.deaf\}/,
+                    replace: "isVoiceDeafened(){return $self.fakeVoiceStateDeafened(this,this.selfDeaf||this.deaf)}"
+                }
+            ]
+        }
+    ],
 
     fakeMuteValue(real: boolean, ctx?: unknown, args?: ArrayLike<unknown>) {
         patchHits++;
         lastRealMute = real;
         recordTrace(`mute real=${real}`);
         captureSender(ctx, args);
-        // The broad "self_deaf:"/"self_mute:" patch touches every module with those field
-        // names, not just the voice gateway module, and some of those unrelated modules can
-        // use ctx shapes that also happen to carry a voiceStateUpdate method. The one check
-        // that's actually bulletproof regardless of module: a real mute/deafen flag is always
-        // a boolean. Anything else (a class reference, a component, whatever) was never ours
-        // to touch, so it always passes straight through untouched.
-        if (typeof real !== "boolean" || !isLicensed() || !isVoiceStateSender(ctx)) return real;
+        if (!isLicensed()) return real;
         return settings.store.fakeMute || settings.store.fakeDeafen ? true : real;
     },
 
@@ -464,7 +478,7 @@ export default definePlugin({
         lastRealDeaf = real;
         recordTrace(`deaf real=${real}`);
         captureSender(ctx, args);
-        if (typeof real !== "boolean" || !isLicensed() || !isVoiceStateSender(ctx)) return real;
+        if (!isLicensed()) return real;
         return settings.store.fakeDeafen ? true : real;
     },
 
