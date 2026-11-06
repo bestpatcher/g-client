@@ -126,8 +126,13 @@ export default definePlugin({
     required: true,
     hidden: true,
 
-    // DIAGNOSTIC: off during the same patch-set sweep described in gVoice.
-    patches: [],
+    patches: [{
+        find: 'tutorialId:"direct-messages"',
+        replacement: {
+            match: /(?<="family-center"\)(?:&&undefined)?:null,)/,
+            replace: "$self.renderSearch(),"
+        }
+    }],
 
     renderSearch: ErrorBoundary.wrap(SearchItem, { noop: true })
 });

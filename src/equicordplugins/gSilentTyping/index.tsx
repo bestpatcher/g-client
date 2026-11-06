@@ -16,8 +16,15 @@ export default definePlugin({
     required: true,
     hidden: true,
 
-    // DIAGNOSTIC: off during the same patch-set sweep described in gVoice.
-    patches: [],
+    patches: [
+        {
+            find: '.dispatch({type:"TYPING_START_LOCAL"',
+            replacement: {
+                match: /startTyping\(\i\)\{.{0,300}?\.dispatch\(\{type:"TYPING_START_LOCAL".{0,100}?\},stop/,
+                replace: "startTyping:$self.startTyping,stop"
+            }
+        }
+    ],
 
     startTyping(channelId: string) {
         if (isAllowed()) return;
