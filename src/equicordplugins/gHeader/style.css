@@ -1,10 +1,26 @@
+@keyframes vc-gheader-glow-cycle {
+    0% {
+        color: #ff4fd8;
+        text-shadow: 0 0 4px #ff4fd8, 0 0 8px rgba(255, 79, 216, 0.6);
+    }
+
+    50% {
+        color: #3a5fff;
+        text-shadow: 0 0 4px #3a5fff, 0 0 8px rgba(58, 95, 255, 0.6);
+    }
+
+    100% {
+        color: #ff4fd8;
+        text-shadow: 0 0 4px #ff4fd8, 0 0 8px rgba(255, 79, 216, 0.6);
+    }
+}
+
 .vc-gheader-title {
-    color: #fff;
-    text-shadow: 0 0 4px #fff, 0 0 8px rgba(255, 255, 255, 0.6);
+    animation: vc-gheader-glow-cycle 6s ease-in-out infinite;
 }
 
 [data-gheader] *:not(svg, path) {
-    color: #fff;
+    animation: vc-gheader-glow-cycle 6s ease-in-out infinite;
 }
 
 [data-gheader] *:not(:has(*)):not(:empty) {
@@ -16,7 +32,7 @@
     content: "Private Client";
     font-size: 14px;
     font-weight: 600;
-    text-shadow: 0 0 4px #fff, 0 0 8px rgba(255, 255, 255, 0.6);
+    animation: vc-gheader-glow-cycle 6s ease-in-out infinite;
 }
 
 [data-gheader][data-gdev] :is(img, canvas, [role="img"]),
@@ -29,15 +45,18 @@
 }
 
 .vc-gheader-title.vc-gheader-dev {
+    animation: none;
     color: #fff;
     text-shadow: none;
 }
 
 [data-gheader][data-gdev] *:not(svg, path) {
+    animation: none;
     color: #fff;
 }
 
 [data-gheader][data-gdev] *:not(:has(*)):not(:empty)::after {
     content: "Developer Build";
+    animation: none;
     text-shadow: none;
 }
