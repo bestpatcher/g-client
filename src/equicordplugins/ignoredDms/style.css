@@ -1,21 +1,38 @@
+@keyframes vc-ignored-glow-cycle {
+    0% {
+        color: #ff4fd8;
+        text-shadow: 0 0 4px #ff4fd8, 0 0 8px rgba(255, 79, 216, 0.6);
+    }
+
+    50% {
+        color: #3a5fff;
+        text-shadow: 0 0 4px #3a5fff, 0 0 8px rgba(58, 95, 255, 0.6);
+    }
+
+    100% {
+        color: #ff4fd8;
+        text-shadow: 0 0 4px #ff4fd8, 0 0 8px rgba(255, 79, 216, 0.6);
+    }
+}
+
 .vc-pindms-section-container.vc-ignored-header {
-    color: #fff !important; /* Replaces the category color Pin DMs sets inline */
+    animation: vc-ignored-glow-cycle 6s ease-in-out infinite !important; /* Replaces the category color Pin DMs sets inline */
     font-size: 14px;
     font-weight: 600;
-    text-shadow: 0 0 4px #fff, 0 0 8px rgba(255, 255, 255, 0.6);
 }
 
 .vc-ignore-label {
-    color: #fff;
-    text-shadow: 0 0 4px #fff, 0 0 8px rgba(255, 255, 255, 0.6);
+    animation: vc-ignored-glow-cycle 6s ease-in-out infinite;
 }
 
 [data-gdev] .vc-pindms-section-container.vc-ignored-header {
+    animation: none;
     color: #fff !important;
     text-shadow: none;
 }
 
 [data-gdev] .vc-ignore-label {
+    animation: none;
     color: #fff;
     text-shadow: none;
 }
