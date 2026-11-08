@@ -69,6 +69,10 @@ export default definePlugin({
     description: "Allows you to pin private channels to the top of your DM list. To pin/unpin or re-order pins, right click DMs",
     tags: ["Friends", "Organisation"],
     authors: [Devs.Ven, Devs.Aria],
+    // IgnoredDms is required: true and writes straight into this plugin's category data,
+    // so the Ignored section needs this plugin's own rendering patches active for everyone,
+    // not just users who happened to turn PinDMs on manually.
+    required: true,
     settings,
     contextMenus,
 
