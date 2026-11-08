@@ -8,7 +8,7 @@ import "./style.css";
 
 import { EquicordDevs } from "@utils/constants";
 import { addChannelToCategory, currentUserCategories, getCategory, removeChannelFromCategory } from "@plugins/pinDms/data";
-import { isAllowed } from "@utils/gAccess";
+import { isLicensed } from "@utils/gAccess";
 import definePlugin from "@utils/types";
 import { User } from "@vencord/discord-types";
 import { ChannelStore, Menu, RestAPI } from "@webpack/common";
@@ -45,7 +45,7 @@ export default definePlugin({
     contextMenus: {
         "user-context"(children, { user }: { user?: User; }) {
             const channelId = user && ChannelStore.getDMFromUserId(user.id);
-            if (!channelId || !isAllowed()) return;
+            if (!channelId || !isLicensed()) return;
 
             const ignored = !!getCategory(CATEGORY_ID)?.channels.includes(channelId);
             children.push(
