@@ -14,7 +14,7 @@ import definePlugin from "@utils/types";
 import { User } from "@vencord/discord-types";
 import { closeModal, IconUtils, openModal, UserStore } from "@webpack/common";
 
-import { BADGE_CATALOG, BadgeDef } from "./badges";
+import { BADGE_CATALOG, BadgeDef, GIFT_TIERS, NITRO_TIERS } from "./badges";
 import { CustomProfileModal } from "./CustomProfileModal";
 import { settings } from "./settings";
 
@@ -116,15 +116,19 @@ function makeBadge(def: BadgeDef, shouldShow: (userId: string) => boolean): Prof
 
     // Real Discord badge: render through the native iconSrc path so it gets
     // Discord's own badge image element, sizing and CSS, identical to a real one.
-    if (def.icon) {
-        return { ...base, iconSrc: `https://cdn.discordapp.com/badge-icons/${def.icon}.png` };
+    if (def.url) {
+        return { ...base, iconSrc: def.url };
     }
 
     // No verified real asset for this one, show a gem placeholder sized to match.
     return { ...base, component: () => <GemIcon name={def.name} color={def.color} /> };
 }
 
-const registeredBadges = BADGE_CATALOG.map(def => makeBadge(def, () => settings.store.badges.includes(def.id)));
+const registeredBadges = [
+    ...BADGE_CATALOG.map(def => makeBadge(def, () => settings.store.badges.includes(def.id))),
+    ...NITRO_TIERS.map(def => makeBadge(def, () => settings.store.nitroTier === def.id)),
+    ...GIFT_TIERS.map(def => makeBadge(def, () => settings.store.giftTier === def.id))
+];
 
 function openCustomProfileModal() {
     if (!isAllowed()) return;

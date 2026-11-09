@@ -13,5 +13,7 @@ export const settings = definePluginSettings({
     avatarUrl: { type: OptionType.CUSTOM, default: "" },
     bannerUrl: { type: OptionType.CUSTOM, default: "" },
     simulateNitro: { type: OptionType.CUSTOM, default: false },
-    badges: { type: OptionType.CUSTOM, default: [] as string[] }
+    badges: { type: OptionType.CUSTOM, default: [] as string[] },
+    nitroTier: { type: OptionType.CUSTOM, default: "" },
+    giftTier: { type: OptionType.CUSTOM, default: "" }
 });
