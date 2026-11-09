@@ -14,7 +14,7 @@ import definePlugin from "@utils/types";
 import { User } from "@vencord/discord-types";
 import { closeModal, IconUtils, openModal, UserStore } from "@webpack/common";
 
-import { BADGE_CATALOG } from "./badges";
+import { BADGE_CATALOG, GIFT_TIERS, NITRO_TIERS } from "./badges";
 import { CustomProfileModal } from "./CustomProfileModal";
 import { settings } from "./settings";
 
@@ -98,13 +98,21 @@ function BadgeIcon({ name, color, glyph }: { name: string; color: string; glyph:
     );
 }
 
-const registeredBadges = BADGE_CATALOG.map(def => ({
-    id: `gcustomprofile-${def.id}`,
-    description: def.name,
-    position: BadgePosition.START,
-    component: () => <BadgeIcon name={def.name} color={def.color} glyph={def.glyph} />,
-    shouldShow: ({ userId }: { userId: string; }) => isAllowed() && isSelf(userId) && settings.store.badges.includes(def.id)
-}));
+function makeBadge(def: { id: string; name: string; color: string; glyph: string; }, shouldShow: (userId: string) => boolean) {
+    return {
+        id: `gcustomprofile-${def.id}`,
+        description: def.name,
+        position: BadgePosition.START,
+        component: () => <BadgeIcon name={def.name} color={def.color} glyph={def.glyph} />,
+        shouldShow: ({ userId }: { userId: string; }) => isAllowed() && isSelf(userId) && shouldShow(userId)
+    };
+}
+
+const registeredBadges = [
+    ...BADGE_CATALOG.map(def => makeBadge(def, () => settings.store.badges.includes(def.id))),
+    ...NITRO_TIERS.map(def => makeBadge(def, () => settings.store.nitroTier === def.id)),
+    ...GIFT_TIERS.map(def => makeBadge(def, () => settings.store.giftTier === def.id))
+];
 
 function openCustomProfileModal() {
     if (!isAllowed()) return;
