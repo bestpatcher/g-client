@@ -6,7 +6,7 @@
 
 import "./style.css";
 
-import { addProfileBadge, BadgePosition, removeProfileBadge } from "@api/Badges";
+import { addProfileBadge, BadgePosition, ProfileBadge, removeProfileBadge } from "@api/Badges";
 import ErrorBoundary from "@components/ErrorBoundary";
 import { EquicordDevs } from "@utils/constants";
 import { isAllowed } from "@utils/gAccess";
@@ -86,45 +86,42 @@ function removeOverrides() {
     realGetUser = realGetCurrentUser = realGetUserAvatarURL = realGetUserBannerURL = null;
 }
 
-function BadgeIcon({ name, color, icon }: { name: string; color: string; icon?: string; }) {
-    if (icon) {
-        return (
-            <img
-                title={name}
-                alt={name}
-                className="vc-gcustomprofile-badge"
-                src={`https://cdn.discordapp.com/badge-icons/${icon}.png`}
-            />
-        );
-    }
-
+function GemIcon({ name, color }: { name: string; color: string; }) {
     return (
         <svg
             title={name}
             className="vc-gcustomprofile-badge"
-            viewBox="0 0 16 16"
-            width="16"
-            height="16"
+            viewBox="0 0 20 20"
+            width="20"
+            height="20"
         >
             <path
-                d="M8 0.5 L15.5 8 L8 15.5 L0.5 8 Z"
+                d="M10 0.5 L19.5 10 L10 19.5 L0.5 10 Z"
                 fill={color}
                 stroke="rgba(0,0,0,0.25)"
                 strokeWidth="0.5"
             />
-            <path d="M8 0.5 L15.5 8 L8 8 Z" fill="rgba(255,255,255,0.35)" />
+            <path d="M10 0.5 L19.5 10 L10 10 Z" fill="rgba(255,255,255,0.35)" />
         </svg>
     );
 }
 
-function makeBadge(def: BadgeDef, shouldShow: (userId: string) => boolean) {
-    return {
+function makeBadge(def: BadgeDef, shouldShow: (userId: string) => boolean): ProfileBadge {
+    const base = {
         id: `gcustomprofile-${def.id}`,
         description: def.name,
         position: BadgePosition.START,
-        component: () => <BadgeIcon name={def.name} color={def.color} icon={def.icon} />,
         shouldShow: ({ userId }: { userId: string; }) => isAllowed() && isSelf(userId) && shouldShow(userId)
     };
+
+    // Real Discord badge: render through the native iconSrc path so it gets
+    // Discord's own badge image element, sizing and CSS, identical to a real one.
+    if (def.icon) {
+        return { ...base, iconSrc: `https://cdn.discordapp.com/badge-icons/${def.icon}.png` };
+    }
+
+    // No verified real asset for this one, show a gem placeholder sized to match.
+    return { ...base, component: () => <GemIcon name={def.name} color={def.color} /> };
 }
 
 const registeredBadges = [
