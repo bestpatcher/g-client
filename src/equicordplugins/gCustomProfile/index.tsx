@@ -110,6 +110,8 @@ function makeBadge(def: BadgeDef, shouldShow: (userId: string) => boolean): Prof
     const base = {
         id: `gcustomprofile-${def.id}`,
         description: def.name,
+        name: def.name,
+        infoLabel: "Discord",
         position: BadgePosition.START,
         shouldShow: ({ userId }: { userId: string; }) => isAllowed() && isSelf(userId) && shouldShow(userId)
     };
