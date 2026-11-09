@@ -6,6 +6,7 @@
 
 import { definePluginSettings } from "@api/Settings";
 import ErrorBoundary from "@components/ErrorBoundary";
+import GCustomProfile from "@equicordplugins/gCustomProfile";
 import { EquicordDevs } from "@utils/constants";
 import { isAllowed } from "@utils/gAccess";
 import definePlugin, { OptionType } from "@utils/types";
@@ -107,6 +108,12 @@ const ShieldMenu = ErrorBoundary.wrap(() => {
                 id="vc-gstreamproof-messagecount-reset"
                 label="Reset message count"
                 action={() => { settings.store.messageCount = null; }}
+            />
+            <Menu.MenuSeparator />
+            <Menu.MenuItem
+                id="vc-gstreamproof-custom-profile"
+                label="Custom Profile"
+                action={() => GCustomProfile.openModal()}
             />
         </Menu.Menu>
     );
