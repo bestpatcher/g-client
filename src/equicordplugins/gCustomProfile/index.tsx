@@ -14,7 +14,7 @@ import definePlugin from "@utils/types";
 import { User } from "@vencord/discord-types";
 import { closeModal, IconUtils, openModal, UserStore } from "@webpack/common";
 
-import { BADGE_CATALOG, GIFT_TIERS, NITRO_TIERS } from "./badges";
+import { BADGE_CATALOG, BadgeDef, GIFT_TIERS, NITRO_TIERS } from "./badges";
 import { CustomProfileModal } from "./CustomProfileModal";
 import { settings } from "./settings";
 
@@ -86,24 +86,43 @@ function removeOverrides() {
     realGetUser = realGetCurrentUser = realGetUserAvatarURL = realGetUserBannerURL = null;
 }
 
-function BadgeIcon({ name, color, glyph }: { name: string; color: string; glyph: string; }) {
+function BadgeIcon({ name, color, icon }: { name: string; color: string; icon?: string; }) {
+    if (icon) {
+        return (
+            <img
+                title={name}
+                alt={name}
+                className="vc-gcustomprofile-badge"
+                src={`https://cdn.discordapp.com/badge-icons/${icon}.png`}
+            />
+        );
+    }
+
     return (
-        <div
+        <svg
             title={name}
             className="vc-gcustomprofile-badge"
-            style={{ background: color }}
+            viewBox="0 0 16 16"
+            width="16"
+            height="16"
         >
-            {glyph}
-        </div>
+            <path
+                d="M8 0.5 L15.5 8 L8 15.5 L0.5 8 Z"
+                fill={color}
+                stroke="rgba(0,0,0,0.25)"
+                strokeWidth="0.5"
+            />
+            <path d="M8 0.5 L15.5 8 L8 8 Z" fill="rgba(255,255,255,0.35)" />
+        </svg>
     );
 }
 
-function makeBadge(def: { id: string; name: string; color: string; glyph: string; }, shouldShow: (userId: string) => boolean) {
+function makeBadge(def: BadgeDef, shouldShow: (userId: string) => boolean) {
     return {
         id: `gcustomprofile-${def.id}`,
         description: def.name,
         position: BadgePosition.START,
-        component: () => <BadgeIcon name={def.name} color={def.color} glyph={def.glyph} />,
+        component: () => <BadgeIcon name={def.name} color={def.color} icon={def.icon} />,
         shouldShow: ({ userId }: { userId: string; }) => isAllowed() && isSelf(userId) && shouldShow(userId)
     };
 }
