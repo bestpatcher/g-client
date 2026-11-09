@@ -26,7 +26,7 @@ interface RestError {
 
 const logger = new Logger("MessagePurger");
 const DELETABLE_TYPES = [0, 19, 20];
-const DELETE_DELAY_MS = 700;
+const DELETE_DELAY_MS = 350;
 
 const settings = definePluginSettings({
     purging: {
@@ -35,11 +35,12 @@ const settings = definePluginSettings({
     }
 });
 
-const isPurging = (channelId: string) => settings.store.purging.includes(channelId);
+const isPurging = (channelId: string) => Array.isArray(settings.store.purging) && settings.store.purging.includes(channelId);
 const setPurging = (channelId: string, on: boolean) => {
+    const current = Array.isArray(settings.store.purging) ? settings.store.purging : [];
     settings.store.purging = on
-        ? [...settings.store.purging, channelId]
-        : settings.store.purging.filter(id => id !== channelId);
+        ? [...current, channelId]
+        : current.filter(id => id !== channelId);
 };
 
 async function withRetry<T>(request: () => Promise<T>): Promise<T> {
@@ -122,7 +123,7 @@ function PurgeIcon() {
 
 const PurgeButton: ChatBarButtonFactory = ({ channel, isMainChat }) => {
     const { purging: purgingChannels } = settings.use(["purging"]);
-    const purging = purgingChannels.includes(channel.id);
+    const purging = Array.isArray(purgingChannels) && purgingChannels.includes(channel.id);
 
     if (!isMainChat) return null;
 
@@ -130,7 +131,11 @@ const PurgeButton: ChatBarButtonFactory = ({ channel, isMainChat }) => {
         <ChatBarButton
             tooltip={purging ? "Stop purging" : "Delete all your messages here"}
             onClick={() => {
-                if (purging) return setPurging(channel.id, false);
+                if (purging) {
+                    setPurging(channel.id, false);
+                    showToast({ text: "Purge stopped.", variant: "success", position: "bottom" });
+                    return;
+                }
 
                 purge(channel.guild_id ?? null, channel.id).catch(e => {
                     logger.error("Purge failed", e);
