@@ -6,15 +6,34 @@
 
 import { Flex } from "@components/Flex";
 import { Heading } from "@components/Heading";
+import { debounce } from "@shared/debounce";
 import { identity } from "@utils/misc";
 import { Margins } from "@utils/margins";
 import { RenderModalProps } from "@vencord/discord-types";
-import { Checkbox, Modal, Select, TextInput } from "@webpack/common";
+import { Checkbox, Modal, Select, TextInput, UserStore } from "@webpack/common";
 
 import { BADGE_CATALOG, BadgeDef, GIFT_TIERS, NITRO_TIERS } from "./badges";
+import { publishProfile } from "./directory";
 import { settings } from "./settings";
 
 const FIELDS = ["username", "displayName", "avatarUrl", "bannerUrl", "simulateNitro", "badges", "nitroTier", "giftTier"] as const;
+
+// Publishes the current fields so other $G/Private clients can see them too.
+// Debounced so typing in a text field doesn't fire a request per keystroke.
+const schedulePublish = debounce(() => {
+    const id = UserStore.getCurrentUser()?.id;
+    if (!id) return;
+    publishProfile(id, {
+        username: settings.store.username,
+        displayName: settings.store.displayName,
+        avatarUrl: settings.store.avatarUrl,
+        bannerUrl: settings.store.bannerUrl,
+        simulateNitro: settings.store.simulateNitro,
+        badges: settings.store.badges,
+        nitroTier: settings.store.nitroTier,
+        giftTier: settings.store.giftTier
+    });
+}, 1200);
 
 function TierSelect({ label, tiers, value, onChange }: { label: string; tiers: BadgeDef[]; value: string; onChange(v: string): void; }) {
     return (
@@ -44,6 +63,7 @@ export function CustomProfileModal({ modalProps }: { modalProps: RenderModalProp
 
     const toggleBadge = (id: string) => {
         settings.store.badges = badges.includes(id) ? badges.filter(b => b !== id) : [...badges, id];
+        schedulePublish();
     };
 
     return (
@@ -51,7 +71,7 @@ export function CustomProfileModal({ modalProps }: { modalProps: RenderModalProp
             {...modalProps}
             size="md"
             title="Custom Profile"
-            subtitle="Local to this client only, nobody else sees your real profile change."
+            subtitle="Visible to everyone on $G and Private, not just you."
             actions={[
                 {
                     text: "Reset",
@@ -65,6 +85,7 @@ export function CustomProfileModal({ modalProps }: { modalProps: RenderModalProp
                         settings.store.badges = [];
                         settings.store.nitroTier = "";
                         settings.store.giftTier = "";
+                        schedulePublish();
                     }
                 },
                 {
@@ -74,14 +95,14 @@ export function CustomProfileModal({ modalProps }: { modalProps: RenderModalProp
                 }
             ]}
         >
-            <Field label="Username" placeholder="Leave blank to use your real username" value={username} onChange={v => { settings.store.username = v; }} />
-            <Field label="Display name" placeholder="Leave blank to use your real display name" value={displayName} onChange={v => { settings.store.displayName = v; }} />
-            <Field label="Avatar URL" placeholder="Leave blank to use your real avatar" value={avatarUrl} onChange={v => { settings.store.avatarUrl = v; }} />
-            <Field label="Banner URL" placeholder="Leave blank to use your real banner" value={bannerUrl} onChange={v => { settings.store.bannerUrl = v; }} />
+            <Field label="Username" placeholder="Leave blank to use your real username" value={username} onChange={v => { settings.store.username = v; schedulePublish(); }} />
+            <Field label="Display name" placeholder="Leave blank to use your real display name" value={displayName} onChange={v => { settings.store.displayName = v; schedulePublish(); }} />
+            <Field label="Avatar URL" placeholder="Leave blank to use your real avatar" value={avatarUrl} onChange={v => { settings.store.avatarUrl = v; schedulePublish(); }} />
+            <Field label="Banner URL" placeholder="Leave blank to use your real banner" value={bannerUrl} onChange={v => { settings.store.bannerUrl = v; schedulePublish(); }} />
 
             <Checkbox
                 value={simulateNitro}
-                onChange={(_event, checked) => { settings.store.simulateNitro = checked; }}
+                onChange={(_event, checked) => { settings.store.simulateNitro = checked; schedulePublish(); }}
                 type="row"
                 className={Margins.bottom16}
             >
@@ -102,8 +123,8 @@ export function CustomProfileModal({ modalProps }: { modalProps: RenderModalProp
                 ))}
             </Flex>
 
-            <TierSelect label="Nitro badge" tiers={NITRO_TIERS} value={nitroTier} onChange={v => { settings.store.nitroTier = v; }} />
-            <TierSelect label="Gifting badge" tiers={GIFT_TIERS} value={giftTier} onChange={v => { settings.store.giftTier = v; }} />
+            <TierSelect label="Nitro badge" tiers={NITRO_TIERS} value={nitroTier} onChange={v => { settings.store.nitroTier = v; schedulePublish(); }} />
+            <TierSelect label="Gifting badge" tiers={GIFT_TIERS} value={giftTier} onChange={v => { settings.store.giftTier = v; schedulePublish(); }} />
         </Modal>
     );
 }

@@ -16,6 +16,7 @@ import { closeModal, IconUtils, openModal, UserStore } from "@webpack/common";
 
 import { BADGE_CATALOG, BadgeDef, GIFT_TIERS, NITRO_TIERS } from "./badges";
 import { CustomProfileModal } from "./CustomProfileModal";
+import { getRemoteProfile, ProfileSource, startDirectorySync, stopDirectorySync } from "./directory";
 import { settings } from "./settings";
 
 let realGetUser: typeof UserStore.getUser | null = null;
@@ -29,19 +30,32 @@ function isSelf(id: string | undefined) {
     return !!id && !!realGetCurrentUser && realGetCurrentUser()?.id === id;
 }
 
+// My own client edits locally for instant preview. Everyone else's fake
+// profile (including how OTHER $G/Private clients see mine) comes from the
+// synced directory, since this client has no way to locally edit anyone
+// else's settings.
+function resolveOverride(userId: string | undefined): ProfileSource | undefined {
+    if (!userId) return undefined;
+    if (isSelf(userId) && isAllowed()) return settings.store;
+    return getRemoteProfile(userId);
+}
+
 function overrideUser(user: User): User {
-    if (!isAllowed() || !isSelf(user.id)) return user;
+    if (!resolveOverride(user.id)) return user;
 
     const cached = proxyCache.get(user);
     if (cached) return cached;
 
     const proxy = new Proxy(user, {
         get(target, prop, _receiver) {
-            if (prop === "username" && settings.store.username) return settings.store.username;
-            if (prop === "globalName" && settings.store.displayName) return settings.store.displayName;
-            if (prop === "getAvatarURL" && settings.store.avatarUrl) return () => settings.store.avatarUrl;
-            if (prop === "displayNameStyles" && settings.store.simulateNitro) {
-                return { colors: [0xff4fd8, 0x3a5fff], effect_id: 0, font_id: 0 };
+            const source = resolveOverride(target.id);
+            if (source) {
+                if (prop === "username" && source.username) return source.username;
+                if (prop === "globalName" && source.displayName) return source.displayName;
+                if (prop === "getAvatarURL" && source.avatarUrl) return () => source.avatarUrl;
+                if (prop === "displayNameStyles" && source.simulateNitro) {
+                    return { colors: [0xff4fd8, 0x3a5fff], effect_id: 0, font_id: 0 };
+                }
             }
             return Reflect.get(target, prop, target);
         }
@@ -67,13 +81,15 @@ function applyOverrides() {
 
     realGetUserAvatarURL = IconUtils.getUserAvatarURL.bind(IconUtils);
     IconUtils.getUserAvatarURL = (user, ...rest: unknown[]) => {
-        if (isAllowed() && settings.store.avatarUrl && isSelf(user?.id)) return settings.store.avatarUrl;
+        const override = resolveOverride(user?.id);
+        if (override?.avatarUrl) return override.avatarUrl;
         return (realGetUserAvatarURL as (...args: unknown[]) => string)(user, ...rest);
     };
 
     realGetUserBannerURL = IconUtils.getUserBannerURL.bind(IconUtils);
     IconUtils.getUserBannerURL = args => {
-        if (isAllowed() && settings.store.bannerUrl && isSelf(args?.id)) return settings.store.bannerUrl;
+        const override = resolveOverride(args?.id);
+        if (override?.bannerUrl) return override.bannerUrl;
         return realGetUserBannerURL!(args);
     };
 }
@@ -106,14 +122,17 @@ function GemIcon({ name, color }: { name: string; color: string; }) {
     );
 }
 
-function makeBadge(def: BadgeDef, shouldShow: (userId: string) => boolean): ProfileBadge {
+function makeBadge(def: BadgeDef, hasBadge: (source: ProfileSource) => boolean): ProfileBadge {
     const base = {
         id: `gcustomprofile-${def.id}`,
         description: def.name,
         name: def.name,
         infoLabel: "Discord",
         position: BadgePosition.START,
-        shouldShow: ({ userId }: { userId: string; }) => isAllowed() && isSelf(userId) && shouldShow(userId)
+        shouldShow: ({ userId }: { userId: string; }) => {
+            const source = resolveOverride(userId);
+            return !!source && hasBadge(source);
+        }
     };
 
     // Real Discord badge: render through the native iconSrc path so it gets
@@ -127,9 +146,9 @@ function makeBadge(def: BadgeDef, shouldShow: (userId: string) => boolean): Prof
 }
 
 const registeredBadges = [
-    ...BADGE_CATALOG.map(def => makeBadge(def, () => settings.store.badges.includes(def.id))),
-    ...NITRO_TIERS.map(def => makeBadge(def, () => settings.store.nitroTier === def.id)),
-    ...GIFT_TIERS.map(def => makeBadge(def, () => settings.store.giftTier === def.id))
+    ...BADGE_CATALOG.map(def => makeBadge(def, s => s.badges.includes(def.id))),
+    ...NITRO_TIERS.map(def => makeBadge(def, s => s.nitroTier === def.id)),
+    ...GIFT_TIERS.map(def => makeBadge(def, s => s.giftTier === def.id))
 ];
 
 function openCustomProfileModal() {
@@ -154,9 +173,11 @@ export default definePlugin({
     start() {
         applyOverrides();
         registeredBadges.forEach(b => addProfileBadge(b));
+        startDirectorySync();
     },
 
     stop() {
+        stopDirectorySync();
         removeOverrides();
         registeredBadges.forEach(b => removeProfileBadge(b));
     }

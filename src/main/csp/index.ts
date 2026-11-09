@@ -115,6 +115,8 @@ export const CspPolicies: PolicyMap = {
     "twemoji.maxcdn.com": ImageSrc,
     "shiggy.thororen.com": ImageSrc,
 
+    "gmt-license-api-1.onrender.com": ConnectSrc, // Custom Profile directory (GCustomProfile plugin)
+
     "gb.obamabot.me": ImageSrc,
     "nekocord.dev": ImageSrc,
     "paicord.llsc12.me": ImageSrc,
