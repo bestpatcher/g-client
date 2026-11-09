@@ -25,26 +25,6 @@ export const BADGE_CATALOG: BadgeDef[] = [
     { id: "bug-hunter-1", name: "Bug Hunter Level 1", color: "#5bc0de", icon: "2717692c7dca7289b35297368a940dd0" },
     { id: "verified-dev", name: "Early Verified Bot Developer", color: "#5865f2", icon: "6df5892e0f35b051f8b61eace34f4967" },
     { id: "active-dev", name: "Active Developer", color: "#2ecc71", icon: "6bdc42827a38498929a4920da12695d9" },
+    { id: "nitro", name: "Nitro", color: "#ff73fa", icon: "2ba85e8026a8614b640c2837bcdfe21b" },
     { id: "server-booster", name: "Server Booster", color: "#f47fff" }
-];
-
-export const NITRO_TIERS: BadgeDef[] = [
-    { id: "nitro", name: "Nitro (0 months)", color: "#ff73fa", icon: "2ba85e8026a8614b640c2837bcdfe21b" },
-    { id: "bronze", name: "Bronze (1 month)", color: "#c2791e" },
-    { id: "silver", name: "Silver (3 months)", color: "#9aa3ab" },
-    { id: "gold", name: "Gold (6 months)", color: "#e8b923" },
-    { id: "platinum", name: "Platinum (12 months)", color: "#6bd6e8" },
-    { id: "diamond", name: "Diamond (24 months)", color: "#7fd4f0" },
-    { id: "emerald", name: "Emerald (36 months)", color: "#2ecc71" },
-    { id: "ruby", name: "Ruby (60 months)", color: "#e0245e" },
-    { id: "opal", name: "Opal (72 months)", color: "#c58df0" }
-];
-
-export const GIFT_TIERS: BadgeDef[] = [
-    { id: "patron", name: "Patron", color: "#5865f2" },
-    { id: "champion", name: "Champion", color: "#57a65a" },
-    { id: "luminary", name: "Luminary", color: "#f4b728" },
-    { id: "icon", name: "Icon", color: "#eb459e" },
-    { id: "hero", name: "Hero", color: "#ed4245" },
-    { id: "legend", name: "Legend", color: "#9b59b6" }
 ];

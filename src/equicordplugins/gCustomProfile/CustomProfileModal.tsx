@@ -6,29 +6,14 @@
 
 import { Flex } from "@components/Flex";
 import { Heading } from "@components/Heading";
-import { identity } from "@utils/misc";
 import { Margins } from "@utils/margins";
 import { RenderModalProps } from "@vencord/discord-types";
-import { Checkbox, Modal, Select, TextInput } from "@webpack/common";
+import { Checkbox, Modal, TextInput } from "@webpack/common";
 
-import { BADGE_CATALOG, BadgeDef, GIFT_TIERS, NITRO_TIERS } from "./badges";
+import { BADGE_CATALOG } from "./badges";
 import { settings } from "./settings";
 
-const FIELDS = ["username", "displayName", "avatarUrl", "bannerUrl", "simulateNitro", "badges", "nitroTier", "giftTier"] as const;
-
-function TierSelect({ label, tiers, value, onChange }: { label: string; tiers: BadgeDef[]; value: string; onChange(v: string): void; }) {
-    return (
-        <div className={Margins.bottom16}>
-            <Heading tag="h5" className={Margins.bottom8}>{label}</Heading>
-            <Select
-                options={[{ value: "", label: "None" }, ...tiers.map(t => ({ value: t.id, label: t.name }))]}
-                serialize={identity}
-                isSelected={v => v === value}
-                select={onChange}
-            />
-        </div>
-    );
-}
+const FIELDS = ["username", "displayName", "avatarUrl", "bannerUrl", "simulateNitro", "badges"] as const;
 
 function Field({ label, placeholder, value, onChange }: { label: string; placeholder: string; value: string; onChange(v: string): void; }) {
     return (
@@ -40,7 +25,7 @@ function Field({ label, placeholder, value, onChange }: { label: string; placeho
 }
 
 export function CustomProfileModal({ modalProps }: { modalProps: RenderModalProps; }) {
-    const { username, displayName, avatarUrl, bannerUrl, simulateNitro, badges, nitroTier, giftTier } = settings.use(FIELDS);
+    const { username, displayName, avatarUrl, bannerUrl, simulateNitro, badges } = settings.use(FIELDS);
 
     const toggleBadge = (id: string) => {
         settings.store.badges = badges.includes(id) ? badges.filter(b => b !== id) : [...badges, id];
@@ -63,8 +48,6 @@ export function CustomProfileModal({ modalProps }: { modalProps: RenderModalProp
                         settings.store.bannerUrl = "";
                         settings.store.simulateNitro = false;
                         settings.store.badges = [];
-                        settings.store.nitroTier = "";
-                        settings.store.giftTier = "";
                     }
                 },
                 {
@@ -101,9 +84,6 @@ export function CustomProfileModal({ modalProps }: { modalProps: RenderModalProp
                     </Checkbox>
                 ))}
             </Flex>
-
-            <TierSelect label="Evolving Nitro badge" tiers={NITRO_TIERS} value={nitroTier} onChange={v => { settings.store.nitroTier = v; }} />
-            <TierSelect label="Gifting badge" tiers={GIFT_TIERS} value={giftTier} onChange={v => { settings.store.giftTier = v; }} />
         </Modal>
     );
 }

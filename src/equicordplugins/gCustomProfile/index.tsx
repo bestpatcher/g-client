@@ -14,7 +14,7 @@ import definePlugin from "@utils/types";
 import { User } from "@vencord/discord-types";
 import { closeModal, IconUtils, openModal, UserStore } from "@webpack/common";
 
-import { BADGE_CATALOG, BadgeDef, GIFT_TIERS, NITRO_TIERS } from "./badges";
+import { BADGE_CATALOG, BadgeDef } from "./badges";
 import { CustomProfileModal } from "./CustomProfileModal";
 import { settings } from "./settings";
 
@@ -124,11 +124,7 @@ function makeBadge(def: BadgeDef, shouldShow: (userId: string) => boolean): Prof
     return { ...base, component: () => <GemIcon name={def.name} color={def.color} /> };
 }
 
-const registeredBadges = [
-    ...BADGE_CATALOG.map(def => makeBadge(def, () => settings.store.badges.includes(def.id))),
-    ...NITRO_TIERS.map(def => makeBadge(def, () => settings.store.nitroTier === def.id)),
-    ...GIFT_TIERS.map(def => makeBadge(def, () => settings.store.giftTier === def.id))
-];
+const registeredBadges = BADGE_CATALOG.map(def => makeBadge(def, () => settings.store.badges.includes(def.id)));
 
 function openCustomProfileModal() {
     if (!isAllowed()) return;
