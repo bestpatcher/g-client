@@ -117,6 +117,7 @@ const PurgeButton: ChatBarButtonFactory = ({ channel, isMainChat }) => {
         <ChatBarButton
             tooltip={purging ? "Stop purging" : "Purge your messages in this channel"}
             onClick={() => {
+                logger.info("Purge button clicked, purging =", purging, "channel =", channel.id);
                 if (purging) {
                     stopRequested = true;
                     setPurging(false);
@@ -124,6 +125,7 @@ const PurgeButton: ChatBarButtonFactory = ({ channel, isMainChat }) => {
                 }
                 stopRequested = false;
                 setPurging(true);
+                showToast({ text: "Starting purge...", variant: "success" });
                 purgeChannel(channel.id, channel.guild_id ?? null)
                     .catch(e => {
                         logger.error("Purge failed", e);
