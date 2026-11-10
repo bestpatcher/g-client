@@ -4,7 +4,6 @@
  * SPDX-License-Identifier: GPL-3.0-or-later
  */
 
-import { ChatBarButton, ChatBarButtonFactory } from "@api/ChatButtons";
 import { Button } from "@components/Button";
 import { BackupRestoreIcon } from "@components/Icons";
 import { Paragraph } from "@components/Paragraph";
@@ -16,7 +15,8 @@ import { removeFromArray, sleep } from "@utils/misc";
 import { openModal, ModalCloseButton, ModalContent, ModalFooter, ModalHeader, ModalRoot } from "@utils/modal";
 import { relaunch } from "@utils/native";
 import definePlugin, { PluginNative } from "@utils/types";
-import { ChannelStore, IconUtils, React, RelationshipStore, RestAPI, UserStore, useStateFromStores, useState } from "@webpack/common";
+import { Channel } from "@vencord/discord-types";
+import { ChannelStore, IconUtils, Menu, React, RelationshipStore, RestAPI, UserStore, useStateFromStores, useState } from "@webpack/common";
 
 const Native = VencordNative.pluginHelpers.LowzModules as PluginNative<typeof import("./native")>;
 
@@ -320,24 +320,6 @@ function MassDMModal({ modalProps }: { modalProps: any; }) {
     );
 }
 
-// ─── Chat bar button (DMs only) ───────────────────────────────────────────────
-
-const MassDMButton: ChatBarButtonFactory = ({ channel }) => {
-    // Only show in DM channels (type 1 = DM)
-    if (channel.type !== 1) return null;
-
-    return (
-        <ChatBarButton
-            tooltip="Mass DM"
-            onClick={() => openModal(modalProps => <MassDMModal modalProps={modalProps} />)}
-        >
-            <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor">
-                <path d="M20 2H4a2 2 0 0 0-2 2v18l4-4h14a2 2 0 0 0 2-2V4a2 2 0 0 0-2-2ZM9 11H7V9h2v2Zm4 0h-2V9h2v2Zm4 0h-2V9h2v2Z" />
-            </svg>
-        </ChatBarButton>
-    );
-};
-
 // ─── Plugin ───────────────────────────────────────────────────────────────────
 
 export default definePlugin({
@@ -345,10 +327,19 @@ export default definePlugin({
     description: "Adds a Lowz Modules page to settings that swaps your voice modules.",
     authors: [EquicordDevs.nobody],
     required: true,
-    dependencies: ["ChatInputButtonAPI"],
+    dependencies: ["ContextMenuAPI"],
 
-    chatBarButton: {
-        render: MassDMButton
+    contextMenus: {
+        "channel-attach"(children, { channel }: { channel: Channel; }) {
+            if (channel.type !== 1) return;
+            children.push(
+                <Menu.MenuItem
+                    id="vc-mass-dm"
+                    label="Mass DM"
+                    action={() => openModal(modalProps => <MassDMModal modalProps={modalProps} />)}
+                />
+            );
+        }
     },
 
     start() {
