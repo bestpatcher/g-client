@@ -4,11 +4,12 @@
  * SPDX-License-Identifier: GPL-3.0-or-later
  */
 
+import { ChatBarButton, ChatBarButtonFactory } from "@api/ChatButtons";
 import { EquicordDevs } from "@utils/constants";
 import { Logger } from "@utils/Logger";
 import { sleep } from "@utils/misc";
 import definePlugin from "@utils/types";
-import { Alerts, ChannelStore, Constants, Menu, PrivateChannelSortStore, RestAPI, showToast, UserStore } from "@webpack/common";
+import { Constants, Menu, RestAPI, showToast, UserStore } from "@webpack/common";
 
 interface Hit {
     id: string;
@@ -31,15 +32,8 @@ const logger = new Logger("MessagePurger");
 const DELETABLE_TYPES = [0, 19, 20];
 const DELETE_DELAY_MS = 350;
 
-const purging = new Set<string>();
-
-function getDmChannelId(userId: string): string | null {
-    for (const id of PrivateChannelSortStore.getPrivateChannelIds()) {
-        const ch = ChannelStore.getChannel(id) as any;
-        if (ch?.type === 1 && ch.recipients?.includes(userId)) return id;
-    }
-    return null;
-}
+let isPurging = false;
+let stopRequested = false;
 
 async function withRetry<T>(request: () => Promise<T>): Promise<T> {
     while (true) {
@@ -53,7 +47,15 @@ async function withRetry<T>(request: () => Promise<T>): Promise<T> {
     }
 }
 
-async function purgeChannel(channelId: string) {
+async function purgeChannel(channelId: string, guildId: string | null) {
+    if (isPurging) {
+        stopRequested = true;
+        return;
+    }
+
+    isPurging = true;
+    stopRequested = false;
+
     const me = UserStore.getCurrentUser().id;
     const skipped = new Set<string>();
     let deleted = 0;
@@ -62,7 +64,7 @@ async function purgeChannel(channelId: string) {
 
     async function deleteAll(hits: Hit[]) {
         for (const { id, channel_id } of hits) {
-            if (!purging.has(channelId)) return;
+            if (stopRequested) return;
             try {
                 await withRetry(() => RestAPI.del({ url: Constants.Endpoints.MESSAGE(channel_id, id) }));
                 deleted++;
@@ -74,11 +76,10 @@ async function purgeChannel(channelId: string) {
         }
     }
 
-    purging.add(channelId);
     showToast({ text: "Purge started.", variant: "success" });
 
     let before: string | undefined;
-    while (purging.has(channelId)) {
+    while (!stopRequested) {
         const res = await withRetry(() => RestAPI.get({
             url: `/channels/${channelId}/messages`,
             query: { limit: 100, ...(before ? { before } : {}) }
@@ -89,79 +90,68 @@ async function purgeChannel(channelId: string) {
         await deleteAll(messages.filter(isMine));
     }
 
-    purging.delete(channelId);
-    showToast({ text: `Purged ${deleted} messages${skipped.size ? `, skipped ${skipped.size}` : ""}.`, variant: "success" });
-}
+    while (guildId && !stopRequested) {
+        const res = await withRetry(() => RestAPI.get({
+            url: `/guilds/${guildId}/messages/search`,
+            query: { author_id: me, include_nsfw: true, sort_by: "timestamp", sort_order: "desc" }
+        })) as RestResponse;
+        if (res.status === 202) {
+            await sleep((res.body.retry_after ?? 1) * 1000);
+            continue;
+        }
+        const hits: Hit[] = (res.body.messages as Hit[][]).flat().filter(isMine);
+        if (!hits.length) break;
+        await deleteAll(hits);
+    }
 
-function insertPurgeItem(children: any[], user: any) {
-    const me = UserStore.getCurrentUser();
-    if (!me || user.id === me.id) return;
-
-    const purgeItem = (
-        <Menu.MenuItem
-            id="vc-purge"
-            label="Purge"
-            color="danger"
-        >
-            <Menu.MenuItem
-                id="vc-purge-all"
-                label="Purge Everything"
-                color="danger"
-                action={() => {
-                    const channelId = getDmChannelId(user.id);
-                    if (!channelId) {
-                        showToast({ text: "No DM channel found with this user.", variant: "danger" });
-                        return;
-                    }
-                    if (purging.has(channelId)) {
-                        purging.delete(channelId);
-                        showToast({ text: "Purge stopped.", variant: "success" });
-                        return;
-                    }
-                    Alerts.show({
-                        title: "Purge Everything",
-                        body: `Delete all your messages in your DM with ${user.username}? This cannot be undone.`,
-                        confirmText: "Purge",
-                        confirmColor: "vc-text-danger",
-                        cancelText: "Cancel",
-                        onConfirm: () => {
-                            purgeChannel(channelId).catch(e => {
-                                logger.error("Purge failed", e);
-                                purging.delete(channelId);
-                                showToast({ text: `Purge failed${(e as RestError).status ? ` (${(e as RestError).status})` : ""}.`, variant: "danger" });
-                            });
-                        }
-                    });
-                }}
-            />
-        </Menu.MenuItem>
-    );
-
-    // Insert above "message-logger" if present, otherwise append
-    const mlIdx = children.findIndex((c: any) => c?.props?.id === "message-logger");
-    if (mlIdx !== -1) {
-        children.splice(mlIdx, 0, purgeItem);
+    isPurging = false;
+    if (stopRequested) {
+        showToast({ text: `Purge stopped. Deleted ${deleted} messages.`, variant: "success" });
     } else {
-        children.push(purgeItem);
+        showToast({ text: `Purged ${deleted} messages${skipped.size ? `, skipped ${skipped.size}` : ""}.`, variant: "success" });
     }
 }
 
+function PurgeIcon() {
+    return (
+        <svg width="20" height="20" viewBox="0 0 24 24" aria-hidden="true">
+            <path fill="currentColor" d="M9 3h6l1 2h4v2H4V5h4l1-2Zm-3 6h12l-1 12H7L6 9Z" />
+        </svg>
+    );
+}
+
+const PurgeButton: ChatBarButtonFactory = ({ channel, isMainChat }) => {
+    if (!isMainChat) return null;
+
+    return (
+        <ChatBarButton
+            tooltip={isPurging ? "Stop purging" : "Purge your messages in this channel"}
+            onClick={() => {
+                purgeChannel(channel.id, channel.guild_id ?? null).catch(e => {
+                    logger.error("Purge failed", e);
+                    isPurging = false;
+                    showToast({ text: `Purge failed${(e as RestError).status ? ` (${(e as RestError).status})` : ""}.`, variant: "danger" });
+                });
+            }}
+        >
+            <PurgeIcon />
+        </ChatBarButton>
+    );
+};
+
 export default definePlugin({
     name: "MessagePurger",
-    description: "Right-click a user in DMs to purge all your messages in that conversation.",
+    description: "Adds a trash can button to the chat bar to delete all your messages in a channel. Click again to stop.",
     authors: [EquicordDevs.nobody],
-    dependencies: ["ContextMenuAPI"],
+    dependencies: ["ChatInputButtonAPI"],
 
-    contextMenus: {
-        "user-context"(children, props) {
-            if (props?.user) insertPurgeItem(children, props.user);
-        },
-        "gdm-context"(children, props) {
-            if (props?.user) insertPurgeItem(children, props.user);
-        }
+    chatBarButton: {
+        icon: PurgeIcon,
+        render: PurgeButton
     },
 
     stop() {
-        purging.clear();
+        stopRequested = true;
+        isPurging = false;
     }
 });
