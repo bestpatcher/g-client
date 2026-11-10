@@ -40,24 +40,17 @@ function patchUserVolumeMenu(children: any[], props: { user?: { id: string; }; }
             if (!c?.props) continue;
             // Found the user-volume slider
             if (c.props.id === "user-volume" || (typeof c.props.label === "string" && c.props.label.includes("Volume") && c.props.control)) {
-                const fakeVol = getFakeVolume(userId);
-                arr[i] = (
-                    <Menu.MenuControlItem
-                        key="cv-fake-slider"
-                        id="user-volume"
-                        label={`User Volume`}
-                        control={(controlProps: any, ref: any) => (
-                            <Slider
-                                {...controlProps}
-                                ref={ref}
-                                initialValue={fakeVol}
-                                minValue={0}
-                                maxValue={200}
-                                onValueChange={(v: number) => { fakeVolumes.set(userId, Math.round(v)); }}
-                            />
-                        )}
-                    />
-                );
+                const origControl = c.props.control;
+                arr[i] = React.cloneElement(c, {
+                    control: (controlProps: any, ref: any) => {
+                        const el = origControl(controlProps, ref);
+                        if (!el) return el;
+                        return React.cloneElement(el, {
+                            initialValue: getFakeVolume(userId),
+                            onValueChange: (v: number) => { fakeVolumes.set(userId, Math.round(v)); },
+                        });
+                    }
+                });
                 return true;
             }
             // Recurse into group children
