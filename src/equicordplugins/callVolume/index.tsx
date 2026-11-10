@@ -12,7 +12,7 @@ import { isAllowed } from "@utils/gAccess";
 import { Margins } from "@utils/margins";
 import { removeFromArray } from "@utils/misc";
 import definePlugin from "@utils/types";
-import { ContextMenuApi, IconUtils, MediaEngineStore, Menu, React, SelectedChannelStore, Slider, UserStore, VoiceStateStore, useStateFromStores } from "@webpack/common";
+import { IconUtils, MediaEngineStore, Menu, React, SelectedChannelStore, Slider, UserStore, VoiceStateStore, useStateFromStores } from "@webpack/common";
 
 // userId → real audio volume (what Call Volume tab controls)
 const realVolumes = new Map<string, number>();
@@ -102,31 +102,6 @@ interface VoiceUser {
     avatarURL: string;
 }
 
-function VolumeContextMenu({ userId, onClose }: { userId: string; onClose: () => void; }) {
-    const [vol, setVol] = React.useState(() => getRealVolume(userId));
-
-    return (
-        <Menu.Menu navId={`cv-vol-${userId}`} onClose={onClose}>
-            <Menu.MenuControlItem
-                id="cv-volume-slider"
-                label={`Volume: ${Math.round(vol)}%`}
-                control={(controlProps: any, ref: any) => (
-                    <Slider
-                        {...controlProps}
-                        ref={ref}
-                        initialValue={vol}
-                        minValue={0}
-                        maxValue={200}
-                        onValueChange={(v: number) => {
-                            setVol(v);
-                            setRealVolume(userId, Math.round(v));
-                        }}
-                    />
-                )}
-            />
-        </Menu.Menu>
-    );
-}
 
 function CallVolumeTab() {
     const me = UserStore.getCurrentUser()?.id ?? "";
@@ -167,7 +142,7 @@ function CallVolumeTab() {
     return (
         <SettingsTab title="Call Volume">
             <Paragraph className={Margins.bottom16}>
-                Right-click a person to adjust their real volume (0–200%).
+                Drag a slider to set their real volume (0–200%). The Discord User Volume slider is spoofed separately.
             </Paragraph>
             <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
                 {others.map(u => (
@@ -179,35 +154,24 @@ function CallVolumeTab() {
 }
 
 function CallVolumeRow({ user }: { user: VoiceUser; }) {
-    const vol = getRealVolume(user.userId);
-
-    function openVolumeMenu(e: React.MouseEvent) {
-        ContextMenuApi.openContextMenu(e, () => (
-            <VolumeContextMenu userId={user.userId} onClose={ContextMenuApi.closeContextMenu} />
-        ));
-    }
+    const [vol, setVol] = React.useState(() => getRealVolume(user.userId));
 
     return (
-        <div
-            onContextMenu={openVolumeMenu}
-            style={{
-                display: "flex",
-                alignItems: "center",
-                gap: 10,
-                padding: "8px 12px",
-                borderRadius: 6,
-                cursor: "context-menu",
-                userSelect: "none",
-                background: "var(--background-secondary)",
-            }}
-        >
-            <img
-                src={user.avatarURL}
-                alt=""
-                style={{ width: 32, height: 32, borderRadius: "50%" }}
-            />
-            <span style={{ flex: 1, fontSize: 14, fontWeight: 500 }}>{user.name}</span>
-            <span style={{ fontSize: 13, opacity: 0.6 }}>{Math.round(vol)}%</span>
+        <div style={{ display: "flex", alignItems: "center", gap: 12, padding: "8px 0" }}>
+            <img src={user.avatarURL} alt="" style={{ width: 32, height: 32, borderRadius: "50%", flexShrink: 0 }} />
+            <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ fontSize: 14, fontWeight: 500, marginBottom: 4 }}>{user.name}</div>
+                <Slider
+                    initialValue={vol}
+                    minValue={0}
+                    maxValue={200}
+                    onValueChange={(v: number) => {
+                        setVol(v);
+                        setRealVolume(user.userId, Math.round(v));
+                    }}
+                />
+            </div>
+            <span style={{ fontSize: 13, opacity: 0.6, flexShrink: 0, width: 40, textAlign: "right" }}>{Math.round(vol)}%</span>
         </div>
     );
 }
