@@ -4,11 +4,11 @@
  * SPDX-License-Identifier: GPL-3.0-or-later
  */
 
-import { addChatBarButton, ChatBarButton, removeChatBarButton } from "@api/ChatButtons";
+import { ChatBarButton, ChatBarButtonFactory } from "@api/ChatButtons";
 import { EquicordDevs } from "@utils/constants";
 import { Logger } from "@utils/Logger";
 import { sleep } from "@utils/misc";
-import definePlugin from "@utils/types";
+import definePlugin, { IconComponent, StartAt } from "@utils/types";
 import { Constants, React, RestAPI, showToast, UserStore } from "@webpack/common";
 
 interface Hit {
@@ -32,7 +32,6 @@ const logger = new Logger("MessagePurger");
 const DELETABLE_TYPES = [0, 19, 20];
 const DELETE_DELAY_MS = 350;
 
-let isPurging = false;
 let stopRequested = false;
 
 async function withRetry<T>(request: () => Promise<T>): Promise<T> {
@@ -96,7 +95,6 @@ async function purgeChannel(channelId: string, guildId: string | null) {
         await deleteAll(hits);
     }
 
-    isPurging = false;
     if (stopRequested) {
         showToast({ text: `Purge stopped. Deleted ${deleted} messages.`, variant: "success" });
     } else {
@@ -104,15 +102,13 @@ async function purgeChannel(channelId: string, guildId: string | null) {
     }
 }
 
-function PurgeIcon() {
-    return (
-        <svg width="20" height="20" viewBox="0 0 24 24" aria-hidden="true">
-            <path fill={isPurging ? "var(--status-danger)" : "currentColor"} d="M9 3h6l1 2h4v2H4V5h4l1-2Zm-3 6h12l-1 12H7L6 9Z" />
-        </svg>
-    );
-}
+const PurgeIcon: IconComponent = ({ width = 20, height = 20, className }) => (
+    <svg width={width} height={height} viewBox="0 0 24 24" className={className} aria-hidden="true">
+        <path fill="currentColor" d="M9 3h6l1 2h4v2H4V5h4l1-2Zm-3 6h12l-1 12H7L6 9Z" />
+    </svg>
+);
 
-function PurgeButton({ channel, isMainChat }: any) {
+const PurgeButton: ChatBarButtonFactory = ({ channel, isMainChat }) => {
     const [purging, setPurging] = React.useState(false);
 
     if (!isMainChat) return null;
@@ -123,11 +119,9 @@ function PurgeButton({ channel, isMainChat }: any) {
             onClick={() => {
                 if (purging) {
                     stopRequested = true;
-                    isPurging = false;
                     setPurging(false);
                     return;
                 }
-                isPurging = true;
                 stopRequested = false;
                 setPurging(true);
                 purgeChannel(channel.id, channel.guild_id ?? null)
@@ -135,10 +129,7 @@ function PurgeButton({ channel, isMainChat }: any) {
                         logger.error("Purge failed", e);
                         showToast({ text: `Purge failed${(e as RestError).status ? ` (${(e as RestError).status})` : ""}.`, variant: "danger" });
                     })
-                    .finally(() => {
-                        isPurging = false;
-                        setPurging(false);
-                    });
+                    .finally(() => setPurging(false));
             }}
         >
             <svg width="20" height="20" viewBox="0 0 24 24" aria-hidden="true">
@@ -146,21 +137,21 @@ function PurgeButton({ channel, isMainChat }: any) {
             </svg>
         </ChatBarButton>
     );
-}
+};
 
 export default definePlugin({
     name: "MessagePurger",
     description: "Adds a trash can button to the chat bar to delete all your messages in a channel. Click again to stop.",
     authors: [EquicordDevs.nobody],
     dependencies: ["ChatInputButtonAPI"],
+    startAt: StartAt.Init,
 
-    start() {
-        addChatBarButton("MessagePurger", PurgeButton, PurgeIcon);
+    chatBarButton: {
+        icon: PurgeIcon,
+        render: PurgeButton
     },
 
     stop() {
-        removeChatBarButton("MessagePurger");
         stopRequested = true;
-        isPurging = false;
     }
 });
