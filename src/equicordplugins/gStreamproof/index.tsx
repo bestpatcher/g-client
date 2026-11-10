@@ -10,7 +10,7 @@ import GCustomProfile from "@equicordplugins/gCustomProfile";
 import { EquicordDevs } from "@utils/constants";
 import { isAllowed } from "@utils/gAccess";
 import definePlugin, { OptionType } from "@utils/types";
-import { ContextMenuApi, FriendsStore, Menu, MessageRequestStore, RelationshipStore, showToast, TextInput } from "@webpack/common";
+import { ContextMenuApi, FriendsStore, MediaEngineStore, Menu, MessageRequestStore, RelationshipStore, SelectedChannelStore, showToast, Slider, TextInput, useStateFromStores, UserStore, VoiceStateStore } from "@webpack/common";
 
 import type * as NativeModule from "./native";
 
@@ -55,6 +55,47 @@ async function setNvidiaProof(enabled: boolean) {
     }
     settings.store.nvidiaProof = enabled;
     showToast({ text: enabled ? "Nvidia Proof on, hidden from ShadowPlay and Instant Replay." : "Nvidia Proof off.", variant: "success" });
+}
+
+function VolumeSection() {
+    const me = UserStore.getCurrentUser()?.id;
+    const channelId = useStateFromStores([SelectedChannelStore], () => SelectedChannelStore.getVoiceChannelId());
+    const voiceStates = useStateFromStores([VoiceStateStore], () =>
+        channelId ? Object.values(VoiceStateStore.getVoiceStatesForChannel(channelId) ?? {}) : []
+    );
+
+    const others = voiceStates.filter((vs: any) => vs.userId !== me);
+    if (!others.length) return null;
+
+    return (
+        <>
+            <Menu.MenuSeparator />
+            {others.map((vs: any) => {
+                const user = UserStore.getUser(vs.userId);
+                const name = user?.globalName ?? user?.username ?? vs.userId;
+                const currentVol = MediaEngineStore.getLocalVolume(vs.userId) ?? 100;
+                return (
+                    <Menu.MenuControlItem
+                        key={vs.userId}
+                        id={`fvs-vol-${vs.userId}`}
+                        label={`${name}: ${Math.round(currentVol)}%`}
+                        control={(controlProps: any, ref: any) => (
+                            <Slider
+                                {...controlProps}
+                                ref={ref}
+                                initialValue={currentVol}
+                                minValue={0}
+                                maxValue={200}
+                                onValueChange={(v: number) => {
+                                    MediaEngineStore.setLocalVolume(vs.userId, Math.round(v));
+                                }}
+                            />
+                        )}
+                    />
+                );
+            })}
+        </>
+    );
 }
 
 const ShieldMenu = ErrorBoundary.wrap(() => {
@@ -115,6 +156,7 @@ const ShieldMenu = ErrorBoundary.wrap(() => {
                 label="Custom Profile"
                 action={() => GCustomProfile.openModal()}
             />
+            <VolumeSection />
         </Menu.Menu>
     );
 }, { noop: true });
