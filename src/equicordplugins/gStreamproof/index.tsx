@@ -10,7 +10,7 @@ import GCustomProfile from "@equicordplugins/gCustomProfile";
 import { EquicordDevs } from "@utils/constants";
 import { isAllowed } from "@utils/gAccess";
 import definePlugin, { OptionType } from "@utils/types";
-import { ContextMenuApi, FriendsStore, MediaEngineStore, Menu, MessageRequestStore, RelationshipStore, SelectedChannelStore, showToast, Slider, TextInput, useStateFromStores, UserStore, VoiceStateStore } from "@webpack/common";
+import { ContextMenuApi, FriendsStore, Menu, MessageRequestStore, RelationshipStore, showToast, TextInput } from "@webpack/common";
 
 import type * as NativeModule from "./native";
 
@@ -56,49 +56,6 @@ async function setNvidiaProof(enabled: boolean) {
     settings.store.nvidiaProof = enabled;
     showToast({ text: enabled ? "Nvidia Proof on, hidden from ShadowPlay and Instant Replay." : "Nvidia Proof off.", variant: "success" });
 }
-
-const VolumeSection = ErrorBoundary.wrap(() => {
-    const me = UserStore.getCurrentUser()?.id ?? "";
-    const channelId = useStateFromStores([SelectedChannelStore], () => SelectedChannelStore.getVoiceChannelId() ?? "");
-    const voiceStates = useStateFromStores([VoiceStateStore], () => {
-        if (!channelId) return [];
-        const states = VoiceStateStore.getVoiceStatesForChannel(channelId);
-        return states ? Object.values(states) : [];
-    }, [channelId]);
-
-    const others = voiceStates.filter((vs: any) => vs.userId !== me);
-    if (!others.length) return null;
-
-    return (
-        <>
-            <Menu.MenuSeparator />
-            {others.map((vs: any) => {
-                const user = UserStore.getUser(vs.userId);
-                const name = user?.globalName ?? user?.username ?? vs.userId;
-                const vol = MediaEngineStore.getLocalVolume?.(vs.userId) ?? 100;
-                return (
-                    <Menu.MenuControlItem
-                        key={vs.userId}
-                        id={`gsp-vol-${vs.userId}`}
-                        label={`${name}: ${Math.round(vol)}%`}
-                        control={(controlProps: any, ref: any) => (
-                            <Slider
-                                {...controlProps}
-                                ref={ref}
-                                initialValue={vol}
-                                minValue={0}
-                                maxValue={200}
-                                onValueChange={(v: number) => {
-                                    MediaEngineStore.setLocalVolume?.(vs.userId, Math.round(v));
-                                }}
-                            />
-                        )}
-                    />
-                );
-            })}
-        </>
-    );
-}, { noop: true });
 
 const ShieldMenu = ErrorBoundary.wrap(() => {
     const { enabled, nvidiaProof, friendCount, messageCount } = settings.use(["enabled", "nvidiaProof", "friendCount", "messageCount"]);
@@ -158,7 +115,6 @@ const ShieldMenu = ErrorBoundary.wrap(() => {
                 label="Custom Profile"
                 action={() => GCustomProfile.openModal()}
             />
-            <VolumeSection />
         </Menu.Menu>
     );
 }, { noop: true });
