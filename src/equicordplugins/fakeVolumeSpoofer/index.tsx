@@ -4,7 +4,6 @@
  * SPDX-License-Identifier: GPL-3.0-or-later
  */
 
-import { findGroupChildrenByChildId } from "@api/ContextMenu";
 import { EquicordDevs } from "@utils/constants";
 import { openModal, ModalRoot, ModalHeader, ModalContent, ModalFooter, ModalSize } from "@utils/modal";
 import definePlugin, { makeRange } from "@utils/types";
@@ -16,7 +15,7 @@ const fakeVolumes = new Map<string, number>();
 const realVolumes = new Map<string, number>();
 
 function getFakeVolume(userId: string): number {
-    return fakeVolumes.get(userId) ?? 0;
+    return fakeVolumes.get(userId) ?? 100;
 }
 
 function getRealVolume(userId: string): number {
@@ -39,11 +38,8 @@ function openRealVolumeModal(userId: string) {
                     <Text variant="heading-lg/semibold">Real Volume</Text>
                 </ModalHeader>
                 <ModalContent style={{ padding: "16px 20px" }}>
-                    <Text variant="text-md/normal" style={{ marginBottom: 12 }}>
-                        Fake volume shown to observers: {getFakeVolume(userId)}%
-                    </Text>
                     <Text variant="eyebrow" style={{ marginBottom: 8 }}>
-                        Real Volume: {Math.round(vol)}%
+                        Volume: {Math.round(vol)}%
                     </Text>
                     <Slider
                         initialValue={vol}
@@ -59,7 +55,7 @@ function openRealVolumeModal(userId: string) {
                 </ModalContent>
                 <ModalFooter>
                     <Text variant="text-sm/normal" style={{ opacity: 0.6 }}>
-                        Discord shows {getFakeVolume(userId)}% to screen captures. Audio plays at {Math.round(vol)}%.
+                        Fake slider shows {getFakeVolume(userId)}% — real audio plays at {Math.round(vol)}%.
                     </Text>
                 </ModalFooter>
             </ModalRoot>
@@ -70,9 +66,7 @@ function openRealVolumeModal(userId: string) {
 function findSliderIdx(arr: any[]): number {
     return arr.findIndex((c: any) => {
         if (!c?.props) return false;
-        // Discord's user volume slider is a MenuControlItem with a Slider control
         if (c.props.id === "user-volume") return true;
-        // Fallback: label contains "Volume" and has a control prop (slider)
         if (typeof c.props.label === "string" && c.props.label.includes("Volume") && c.props.control) return true;
         return false;
     });
@@ -82,11 +76,9 @@ function patchVolumeMenu(children: any[], props: { user?: { id: string; }; }) {
     const userId = props.user?.id;
     if (!userId) return;
 
-    // Try top-level first
     let target: any[] = children;
     let sliderIdx = findSliderIdx(children);
 
-    // If not found top-level, search inside each group's children
     if (sliderIdx === -1) {
         for (const child of children) {
             const groupChildren = child?.props?.children;
@@ -105,42 +97,41 @@ function patchVolumeMenu(children: any[], props: { user?: { id: string; }; }) {
 
     const fakeVol = getFakeVolume(userId);
 
-    // Replace the slider with a fake movable one that doesn't affect real audio
+    // Replace with a fake slider. Right-click the slider OR click the "User Volume"
+    // label to open the hidden real volume modal. No visible extra menu item.
     target[sliderIdx] = (
         <Menu.MenuControlItem
             key="fake-volume"
             id="user-volume"
-            label={`User Volume: ${fakeVol}`}
+            label="User Volume"
+            action={() => openRealVolumeModal(userId)}
             control={(controlProps: any, ref: any) => (
-                <Slider
-                    {...controlProps}
-                    ref={ref}
-                    initialValue={fakeVol}
-                    minValue={0}
-                    maxValue={200}
-                    onValueChange={(v: number) => {
-                        fakeVolumes.set(userId, Math.round(v));
-                        // Real audio is NOT changed — only the display updates
+                <div
+                    onContextMenu={(e: React.MouseEvent) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        openRealVolumeModal(userId);
                     }}
-                />
+                >
+                    <Slider
+                        {...controlProps}
+                        ref={ref}
+                        initialValue={fakeVol}
+                        minValue={0}
+                        maxValue={200}
+                        onValueChange={(v: number) => {
+                            fakeVolumes.set(userId, Math.round(v));
+                        }}
+                    />
+                </div>
             )}
         />
     );
-
-    // Add "Real Volume" item right after fake slider
-    target.splice(sliderIdx + 1, 0, (
-        <Menu.MenuItem
-            key="real-volume"
-            id="real-volume-spoof"
-            label={`🔊 Real Volume: ${Math.round(getRealVolume(userId))}%`}
-            action={() => openRealVolumeModal(userId)}
-        />
-    ));
 }
 
 export default definePlugin({
     name: "FakeVolumeSpoofer",
-    description: "Spoofs the User Volume slider so observers see a fake value. Click the Real Volume item to set actual audio level hidden from screen captures.",
+    description: "Spoofs the User Volume slider so observers see a fake value. Click the label or right-click the slider to set the real hidden audio level.",
     authors: [EquicordDevs.nobody],
     dependencies: ["ContextMenuAPI"],
 
