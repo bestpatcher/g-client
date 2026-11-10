@@ -6,51 +6,17 @@
 
 import { definePluginSettings } from "@api/Settings";
 import { EquicordDevs } from "@utils/constants";
-import definePlugin, { OptionType } from "@utils/types";
+import definePlugin, { OptionType, StartAt } from "@utils/types";
 
 const PLATFORMS = {
-    Windows: {
-        os: "Windows",
-        browser: "Discord Client",
-        browser_user_agent: "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) discord/1.0.9195 Chrome/128.0.6613.186 Electron/32.2.7 Safari/537.36",
-        os_version: "10.0.19045",
-    },
-    Mac: {
-        os: "Mac OS X",
-        browser: "Discord Client",
-        browser_user_agent: "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) discord/0.0.316 Chrome/128.0.6613.186 Electron/32.2.7 Safari/537.36",
-        os_version: "10.15.7",
-    },
-    Linux: {
-        os: "Linux",
-        browser: "Discord Client",
-        browser_user_agent: "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) discord/0.0.65 Chrome/128.0.6613.186 Electron/32.2.7 Safari/537.36",
-        os_version: "",
-    },
-    iOS: {
-        os: "iOS",
-        browser: "Discord iOS",
-        browser_user_agent: "Discord/253002 CFNetwork/1568.300.101 Darwin/24.2.0",
-        os_version: "18.2",
-    },
-    Android: {
-        os: "Android",
-        browser: "Discord Android",
-        browser_user_agent: "Discord-Android/253002;RNA",
-        os_version: "14",
-    },
-    Web: {
-        os: "Windows",
-        browser: "Chrome",
-        browser_user_agent: "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36",
-        os_version: "10.0.19045",
-    },
-    VR: {
-        os: "Android",
-        browser: "Discord VR",
-        browser_user_agent: "Discord/253002 (Android 10; Meta Quest 3)",
-        os_version: "10",
-    },
+    Windows: { $os: "Windows", $browser: "Discord Client", $device: "Discord Client" },
+    Mac: { $os: "Mac OS X", $browser: "Discord Client", $device: "Discord Client" },
+    Linux: { $os: "Linux", $browser: "Discord Client", $device: "Discord Client" },
+    iOS: { $os: "iOS", $browser: "Discord iOS", $device: "Discord iOS" },
+    Android: { $os: "Android", $browser: "Discord Android", $device: "Discord Android" },
+    Web: { $os: "Mac OS X", $browser: "Chrome", $device: "" },
+    Xbox: { $os: "Xbox", $browser: "Xbox", $device: "Xbox" },
+    VR: { $os: "Android", $browser: "Discord VR", $device: "Discord VR" },
 } as const;
 
 type Platform = keyof typeof PLATFORMS;
@@ -58,35 +24,49 @@ type Platform = keyof typeof PLATFORMS;
 const settings = definePluginSettings({
     platform: {
         type: OptionType.SELECT,
-        description: "Platform to spoof in the gateway identify payload.",
+        description: "Platform to show other users. Applies on next Discord restart.",
         options: (Object.keys(PLATFORMS) as Platform[]).map((p, i) => ({
             label: p,
             value: p,
             default: i === 0,
         })),
-        restartNeeded: true,
     },
 });
 
 export default definePlugin({
     name: "PlatformSpoofer",
-    description: "Spoof your platform in the Discord gateway identify payload. Requires restart to apply.",
+    description: "Spoof your platform so others see you on a different device. Requires restart to apply.",
     authors: [EquicordDevs.nobody],
     settings,
+    startAt: StartAt.Init,
 
-    patches: [
-        {
-            find: ".identifyStartTime))",
-            replacement: {
-                match: /(?<=properties:)\{os:\i\.os,browser:\i\.browser,.{0,200}?\}/,
-                replace: "$self.getSpoof($&)",
-            },
-        },
-    ],
+    start() {
+        const originalSend = WebSocket.prototype.send;
+        const self = this;
 
-    getSpoof(original: Record<string, string>) {
-        const p = settings.store.platform as Platform ?? "Windows";
-        const spoof = PLATFORMS[p] ?? PLATFORMS.Windows;
-        return { ...original, ...spoof };
+        WebSocket.prototype.send = function (data: string | ArrayBufferLike | Blob | ArrayBufferView) {
+            if (typeof data === "string") {
+                try {
+                    const json = JSON.parse(data);
+                    if (json.op === 2 && json.d?.properties) {
+                        const p = (settings.store.platform as Platform) ?? "Windows";
+                        json.d.properties = { ...json.d.properties, ...PLATFORMS[p] };
+                        data = JSON.stringify(json);
+                    }
+                } catch { }
+            }
+            return originalSend.call(this, data);
+        };
+
+        this._originalSend = originalSend;
     },
+
+    stop() {
+        if (this._originalSend) {
+            WebSocket.prototype.send = this._originalSend;
+            this._originalSend = undefined;
+        }
+    },
+
+    _originalSend: undefined as (WebSocket["send"]) | undefined,
 });
