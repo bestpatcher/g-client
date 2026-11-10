@@ -4,13 +4,12 @@
  * SPDX-License-Identifier: GPL-3.0-or-later
  */
 
-import { ChatBarButton, ChatBarButtonFactory } from "@api/ChatButtons";
+import { addChatBarButton, ChatBarButton, removeChatBarButton } from "@api/ChatButtons";
 import { EquicordDevs } from "@utils/constants";
 import { Logger } from "@utils/Logger";
 import { sleep } from "@utils/misc";
-import { useForceUpdater } from "@utils/react";
 import definePlugin from "@utils/types";
-import { Constants, RestAPI, showToast, UserStore } from "@webpack/common";
+import { Constants, React, RestAPI, showToast, UserStore } from "@webpack/common";
 
 interface Hit {
     id: string;
@@ -35,11 +34,6 @@ const DELETE_DELAY_MS = 350;
 
 let isPurging = false;
 let stopRequested = false;
-const rerenderListeners = new Set<() => void>();
-
-function triggerRerender() {
-    rerenderListeners.forEach(fn => fn());
-}
 
 async function withRetry<T>(request: () => Promise<T>): Promise<T> {
     while (true) {
@@ -103,7 +97,6 @@ async function purgeChannel(channelId: string, guildId: string | null) {
     }
 
     isPurging = false;
-    triggerRerender();
     if (stopRequested) {
         showToast({ text: `Purge stopped. Deleted ${deleted} messages.`, variant: "success" });
     } else {
@@ -111,45 +104,49 @@ async function purgeChannel(channelId: string, guildId: string | null) {
     }
 }
 
-function PurgeIcon({ color }: { color?: string; }) {
+function PurgeIcon() {
     return (
         <svg width="20" height="20" viewBox="0 0 24 24" aria-hidden="true">
-            <path fill={color ?? "currentColor"} d="M9 3h6l1 2h4v2H4V5h4l1-2Zm-3 6h12l-1 12H7L6 9Z" />
+            <path fill={isPurging ? "var(--status-danger)" : "currentColor"} d="M9 3h6l1 2h4v2H4V5h4l1-2Zm-3 6h12l-1 12H7L6 9Z" />
         </svg>
     );
 }
 
-const PurgeButton: ChatBarButtonFactory = ({ channel, isMainChat }) => {
-    const forceUpdate = useForceUpdater();
+function PurgeButton({ channel, isMainChat }: any) {
+    const [purging, setPurging] = React.useState(false);
 
     if (!isMainChat) return null;
 
-    // Register for re-renders when purge state changes
-    rerenderListeners.add(forceUpdate);
-
     return (
         <ChatBarButton
-            tooltip={isPurging ? "Stop purging" : "Purge your messages in this channel"}
+            tooltip={purging ? "Stop purging" : "Purge your messages in this channel"}
             onClick={() => {
-                if (isPurging) {
+                if (purging) {
                     stopRequested = true;
+                    isPurging = false;
+                    setPurging(false);
                     return;
                 }
                 isPurging = true;
                 stopRequested = false;
-                triggerRerender();
-                purgeChannel(channel.id, channel.guild_id ?? null).catch(e => {
-                    logger.error("Purge failed", e);
-                    isPurging = false;
-                    triggerRerender();
-                    showToast({ text: `Purge failed${(e as RestError).status ? ` (${(e as RestError).status})` : ""}.`, variant: "danger" });
-                });
+                setPurging(true);
+                purgeChannel(channel.id, channel.guild_id ?? null)
+                    .catch(e => {
+                        logger.error("Purge failed", e);
+                        showToast({ text: `Purge failed${(e as RestError).status ? ` (${(e as RestError).status})` : ""}.`, variant: "danger" });
+                    })
+                    .finally(() => {
+                        isPurging = false;
+                        setPurging(false);
+                    });
             }}
         >
-            <PurgeIcon color={isPurging ? "var(--status-danger)" : undefined} />
+            <svg width="20" height="20" viewBox="0 0 24 24" aria-hidden="true">
+                <path fill={purging ? "var(--status-danger)" : "currentColor"} d="M9 3h6l1 2h4v2H4V5h4l1-2Zm-3 6h12l-1 12H7L6 9Z" />
+            </svg>
         </ChatBarButton>
     );
-};
+}
 
 export default definePlugin({
     name: "MessagePurger",
@@ -157,14 +154,13 @@ export default definePlugin({
     authors: [EquicordDevs.nobody],
     dependencies: ["ChatInputButtonAPI"],
 
-    chatBarButton: {
-        icon: PurgeIcon,
-        render: PurgeButton
+    start() {
+        addChatBarButton("MessagePurger", PurgeButton, PurgeIcon);
     },
 
     stop() {
+        removeChatBarButton("MessagePurger");
         stopRequested = true;
         isPurging = false;
-        rerenderListeners.clear();
     }
 });
