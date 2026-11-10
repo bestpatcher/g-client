@@ -4,15 +4,21 @@
  * SPDX-License-Identifier: GPL-3.0-or-later
  */
 
+import { definePluginSettings } from "@api/Settings";
+import { FormSwitch } from "@components/FormSwitch";
 import { Paragraph } from "@components/Paragraph";
 import { SettingsTab, wrapTab } from "@components/settings/tabs/BaseTab";
 import SettingsPlugin from "@plugins/_core/settings";
 import { EquicordDevs } from "@utils/constants";
 import { isAllowed } from "@utils/gAccess";
 import { Margins } from "@utils/margins";
-import { removeFromArray } from "@utils/misc";
-import definePlugin from "@utils/types";
+import { classes, removeFromArray } from "@utils/misc";
+import definePlugin, { OptionType } from "@utils/types";
 import { FluxDispatcher, IconUtils, MediaEngineStore, React, SelectedChannelStore, Slider, UserStore, VoiceStateStore, useStateFromStores } from "@webpack/common";
+
+const settings = definePluginSettings({
+    spoofEnabled: { type: OptionType.BOOLEAN, default: true, description: "Spoof the Discord User Volume slider" }
+});
 
 // userId → real audio volume (set in the Call Volume tab)
 const realVolumes = new Map<string, number>();
@@ -34,13 +40,15 @@ function setRealVolume(userId: string, v: number) {
 }
 
 function getFakeVolume(userId: string) {
-    return fakeVolumes.get(userId) ?? getRealVolume(userId);
+    // Independent of real volume: starts at 100 and only moves when the fake slider is dragged.
+    return fakeVolumes.get(userId) ?? 100;
 }
 
 // Discord's native User Volume slider: keep it draggable and let it show whatever
 // value it's dragged to, but never let it touch real audio. We swap its onValueChange
 // for one that only records a fake display value.
 function patchUserVolumeMenu(children: any[], props: { user?: { id: string; }; }) {
+    if (!settings.store.spoofEnabled) return;
     const userId = props.user?.id;
     if (!userId) return;
 
@@ -86,6 +94,7 @@ interface VoiceUser {
 }
 
 function CallVolumeTab() {
+    const { spoofEnabled } = settings.use(["spoofEnabled"]);
     const me = UserStore.getCurrentUser()?.id ?? "";
     const channelId = useStateFromStores([SelectedChannelStore], () => SelectedChannelStore.getVoiceChannelId() ?? "");
     const others = useStateFromStores([VoiceStateStore, SelectedChannelStore], () => {
@@ -105,32 +114,39 @@ function CallVolumeTab() {
             });
     }, [me]);
 
-    if (!channelId) {
-        return (
-            <SettingsTab title="Call Volume">
-                <Paragraph className={Margins.bottom16}>You are not in a voice call.</Paragraph>
-            </SettingsTab>
-        );
-    }
+    const toggle = (
+        <FormSwitch
+            title="Spoof Discord User Volume slider"
+            description="When on, the right-click User Volume slider is fake and only this tab changes what you hear. When off, volume works normally."
+            value={spoofEnabled}
+            onChange={v => { settings.store.spoofEnabled = v; }}
+        />
+    );
 
-    if (!others.length) {
-        return (
-            <SettingsTab title="Call Volume">
-                <Paragraph className={Margins.bottom16}>Nobody else is in the call.</Paragraph>
-            </SettingsTab>
+    let body: React.ReactNode;
+    if (!channelId) {
+        body = <Paragraph className={Margins.top16}>You are not in a voice call.</Paragraph>;
+    } else if (!others.length) {
+        body = <Paragraph className={Margins.top16}>Nobody else is in the call.</Paragraph>;
+    } else {
+        body = (
+            <>
+                <Paragraph className={classes(Margins.top16, Margins.bottom16)}>
+                    Drag a slider to set their real volume (0–200%).
+                </Paragraph>
+                <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
+                    {others.map(u => (
+                        <CallVolumeRow key={u.userId} user={u} />
+                    ))}
+                </div>
+            </>
         );
     }
 
     return (
         <SettingsTab title="Call Volume">
-            <Paragraph className={Margins.bottom16}>
-                Drag a slider to set their real volume (0–200%). The Discord User Volume slider is fake and does not change what you hear.
-            </Paragraph>
-            <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
-                {others.map(u => (
-                    <CallVolumeRow key={u.userId} user={u} />
-                ))}
-            </div>
+            {toggle}
+            {body}
         </SettingsTab>
     );
 }
@@ -164,6 +180,7 @@ export default definePlugin({
     authors: [EquicordDevs.nobody],
     required: true,
     hidden: true,
+    settings,
     dependencies: ["ContextMenuAPI"],
 
     contextMenus: {
@@ -176,7 +193,7 @@ export default definePlugin({
     // through its own dispatch path, snap it back to the value set in the Call Volume tab.
     flux: {
         AUDIO_SET_LOCAL_VOLUME(payload: { userId: string; volume: number; }) {
-            if (applying) return;
+            if (applying || !settings.store.spoofEnabled) return;
             const real = realVolumes.get(payload.userId);
             if (real === undefined || payload.volume === real) return;
             setTimeout(() => setRealVolume(payload.userId, real), 0);
