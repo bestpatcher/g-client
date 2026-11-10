@@ -138,81 +138,93 @@ function MassDMModal({ modalProps }: { modalProps: any; }) {
                 <ModalCloseButton onClose={modalProps.onClose} />
             </ModalHeader>
 
-            <ModalContent style={{ padding: "16px 16px 0" }}>
+            <ModalContent style={{ padding: "12px 16px 0" }}>
                 {/* Message composer */}
-                <Paragraph className={Margins.bottom8} style={{ fontWeight: 600, color: "var(--header-primary)" }}>Message</Paragraph>
-                <textarea
-                    value={message}
-                    onChange={e => setMessage(e.target.value)}
-                    placeholder="Type your message..."
-                    disabled={sending}
-                    rows={3}
-                    style={{
-                        width: "100%",
-                        background: "var(--input-background)",
-                        border: "1px solid var(--background-modifier-accent)",
-                        borderRadius: 4,
-                        color: "var(--text-normal)",
-                        padding: "8px 10px",
-                        fontSize: 14,
-                        resize: "vertical",
-                        outline: "none",
-                        boxSizing: "border-box",
-                        marginBottom: 8,
-                        fontFamily: "inherit",
-                    }}
-                />
-
-                {/* Attach */}
-                <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginBottom: 12, alignItems: "center" }}>
-                    <button
-                        onClick={() => fileInput?.click()}
+                <div style={{
+                    background: "var(--channeltextarea-background)",
+                    border: "1px solid var(--background-modifier-accent)",
+                    borderRadius: 8,
+                    marginBottom: 8,
+                    overflow: "hidden",
+                }}>
+                    <textarea
+                        value={message}
+                        onChange={e => setMessage(e.target.value)}
+                        placeholder="Type a message..."
                         disabled={sending}
+                        rows={2}
                         style={{
-                            background: "var(--background-modifier-accent)",
+                            width: "100%",
+                            background: "transparent",
                             border: "none",
-                            borderRadius: 4,
                             color: "var(--text-normal)",
-                            padding: "4px 10px",
-                            fontSize: 13,
-                            cursor: "pointer",
-                        }}
-                    >+ Attach</button>
-                    <input
-                        ref={el => { fileInput = el; }}
-                        type="file"
-                        multiple
-                        accept="image/*,video/*,.gif,.mp4,.webm"
-                        style={{ display: "none" }}
-                        onChange={e => {
-                            if (e.target.files) setAttachments(prev => [...prev, ...Array.from(e.target.files!)]);
+                            padding: "10px 12px 4px",
+                            fontSize: 14,
+                            resize: "none",
+                            outline: "none",
+                            boxSizing: "border-box",
+                            fontFamily: "inherit",
+                            display: "block",
                         }}
                     />
-                    {attachments.map((file, i) => (
-                        <span key={file.name} style={{
-                            background: "var(--background-modifier-accent)",
-                            borderRadius: 4,
-                            padding: "3px 8px",
-                            fontSize: 12,
-                            color: "var(--text-muted)",
-                        }}>
-                            {file.name}{" "}
-                            <span
-                                onClick={() => setAttachments(prev => prev.filter((_, idx) => idx !== i))}
-                                style={{ cursor: "pointer", color: "var(--status-danger)" }}
-                            >×</span>
-                        </span>
-                    ))}
+                    <div style={{ display: "flex", alignItems: "center", padding: "4px 8px 6px", gap: 6 }}>
+                        <button
+                            onClick={() => fileInput?.click()}
+                            disabled={sending}
+                            style={{
+                                background: "none",
+                                border: "none",
+                                color: "var(--interactive-normal)",
+                                cursor: "pointer",
+                                padding: "2px 4px",
+                                borderRadius: 4,
+                                fontSize: 12,
+                                display: "flex",
+                                alignItems: "center",
+                                gap: 4,
+                            }}
+                        >
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+                                <path d="M12 2a1 1 0 0 1 1 1v8h8a1 1 0 1 1 0 2h-8v8a1 1 0 1 1-2 0v-8H3a1 1 0 1 1 0-2h8V3a1 1 0 0 1 1-1Z" />
+                            </svg>
+                            Attach
+                        </button>
+                        <input
+                            ref={el => { fileInput = el; }}
+                            type="file"
+                            multiple
+                            accept="image/*,video/*,.gif,.mp4,.webm"
+                            style={{ display: "none" }}
+                            onChange={e => {
+                                if (e.target.files) setAttachments(prev => [...prev, ...Array.from(e.target.files!)]);
+                            }}
+                        />
+                        {attachments.map((file, i) => (
+                            <span key={file.name} style={{
+                                background: "var(--background-modifier-accent)",
+                                borderRadius: 3,
+                                padding: "1px 6px",
+                                fontSize: 11,
+                                color: "var(--text-muted)",
+                                display: "flex",
+                                alignItems: "center",
+                                gap: 4,
+                            }}>
+                                {file.name}
+                                <span onClick={() => setAttachments(prev => prev.filter((_, idx) => idx !== i))} style={{ cursor: "pointer", color: "var(--status-danger)", lineHeight: 1 }}>×</span>
+                            </span>
+                        ))}
+                    </div>
                 </div>
 
-                {/* Recipients header */}
+                {/* Recipients row */}
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6 }}>
-                    <Paragraph style={{ fontWeight: 600, color: "var(--header-primary)", margin: 0 }}>
-                        Recipients ({selected.size} / {friends.length})
-                    </Paragraph>
-                    <div style={{ display: "flex", gap: 6 }}>
-                        <button onClick={() => setSelected(new Set(friends.map(f => f.id)))} disabled={sending} style={{ background: "none", border: "none", color: "var(--text-link)", cursor: "pointer", fontSize: 13 }}>Select all</button>
-                        <button onClick={() => setSelected(new Set())} disabled={sending} style={{ background: "none", border: "none", color: "var(--text-muted)", cursor: "pointer", fontSize: 13 }}>Deselect all</button>
+                    <span style={{ fontSize: 11, fontWeight: 700, color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.04em" }}>
+                        Friends — {selected.size} of {friends.length} selected
+                    </span>
+                    <div style={{ display: "flex", gap: 10 }}>
+                        <span onClick={() => !sending && setSelected(new Set(friends.map(f => f.id)))} style={{ color: "var(--text-link)", cursor: "pointer", fontSize: 12 }}>All</span>
+                        <span onClick={() => !sending && setSelected(new Set())} style={{ color: "var(--text-muted)", cursor: "pointer", fontSize: 12 }}>None</span>
                     </div>
                 </div>
 
@@ -220,14 +232,14 @@ function MassDMModal({ modalProps }: { modalProps: any; }) {
                 <input
                     value={search}
                     onChange={e => setSearch(e.target.value)}
-                    placeholder="Search friends..."
+                    placeholder="Search..."
                     style={{
                         width: "100%",
-                        background: "var(--input-background)",
+                        background: "var(--input-background, var(--background-secondary))",
                         border: "1px solid var(--background-modifier-accent)",
                         borderRadius: 4,
                         color: "var(--text-normal)",
-                        padding: "6px 10px",
+                        padding: "5px 10px",
                         fontSize: 13,
                         outline: "none",
                         boxSizing: "border-box",
@@ -237,15 +249,14 @@ function MassDMModal({ modalProps }: { modalProps: any; }) {
 
                 {/* Friend list */}
                 <div style={{
-                    maxHeight: 200,
+                    maxHeight: 180,
                     overflowY: "auto",
-                    background: "var(--background-secondary-alt)",
                     borderRadius: 6,
                     border: "1px solid var(--background-modifier-accent)",
-                    marginBottom: 12,
+                    marginBottom: 10,
                 }}>
                     {filtered.length === 0
-                        ? <Paragraph style={{ padding: 12, color: "var(--text-muted)", textAlign: "center" }}>No friends found</Paragraph>
+                        ? <div style={{ padding: "10px 12px", color: "var(--text-muted)", fontSize: 13, textAlign: "center" }}>No friends found</div>
                         : filtered.map(friend => {
                             const isSelected = selected.has(friend.id);
                             return (
@@ -255,27 +266,26 @@ function MassDMModal({ modalProps }: { modalProps: any; }) {
                                     style={{
                                         display: "flex",
                                         alignItems: "center",
-                                        gap: 10,
-                                        padding: "6px 12px",
+                                        gap: 8,
+                                        padding: "5px 10px",
                                         cursor: sending ? "default" : "pointer",
                                         background: isSelected ? "var(--background-modifier-selected)" : "transparent",
                                         userSelect: "none",
                                     }}
                                 >
-                                    <img src={friend.avatarURL} style={{ width: 26, height: 26, borderRadius: "50%", flexShrink: 0 }} />
-                                    <span style={{ flex: 1, fontSize: 14, color: isSelected ? "var(--text-normal)" : "var(--text-muted)" }}>
+                                    <img src={friend.avatarURL} style={{ width: 24, height: 24, borderRadius: "50%", flexShrink: 0 }} />
+                                    <span style={{ flex: 1, fontSize: 13, color: isSelected ? "var(--text-normal)" : "var(--text-muted)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
                                         {friend.globalName ?? friend.username}
-                                        {friend.globalName && <span style={{ color: "var(--text-muted)", fontSize: 11, marginLeft: 6 }}>@{friend.username}</span>}
                                     </span>
                                     <div style={{
-                                        width: 16, height: 16, borderRadius: 3, flexShrink: 0,
+                                        width: 14, height: 14, borderRadius: 3, flexShrink: 0,
                                         border: `2px solid ${isSelected ? "var(--brand-experiment)" : "var(--background-modifier-accent)"}`,
                                         background: isSelected ? "var(--brand-experiment)" : "transparent",
                                         display: "flex", alignItems: "center", justifyContent: "center",
                                     }}>
                                         {isSelected && (
-                                            <svg width="10" height="8" viewBox="0 0 10 8" fill="none">
-                                                <path d="M1 4L3.5 6.5L9 1" stroke="white" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+                                            <svg width="9" height="7" viewBox="0 0 10 8" fill="none">
+                                                <path d="M1 4L3.5 6.5L9 1" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
                                             </svg>
                                         )}
                                     </div>
@@ -286,22 +296,24 @@ function MassDMModal({ modalProps }: { modalProps: any; }) {
                 </div>
 
                 {progress && (
-                    <Paragraph className={Margins.bottom8} style={{
+                    <div style={{
+                        fontSize: 12,
                         color: progress.startsWith("Done") ? "var(--text-positive)" : "var(--text-muted)",
-                        fontSize: 13,
+                        marginBottom: 8,
+                        textAlign: "center",
                     }}>
                         {progress}
-                    </Paragraph>
+                    </div>
                 )}
             </ModalContent>
 
-            <ModalFooter>
+            <ModalFooter style={{ padding: "12px 16px" }}>
                 <Button
                     onClick={handleSend}
                     disabled={sending || selected.size === 0 || (!message.trim() && !attachments.length)}
-                    style={{ width: "100%", fontWeight: 700 }}
+                    style={{ width: "100%", fontWeight: 600 }}
                 >
-                    {sending ? "Sending..." : `Mass DM (${selected.size})`}
+                    {sending ? "Sending..." : `Mass DM — ${selected.size} ${selected.size === 1 ? "person" : "people"}`}
                 </Button>
             </ModalFooter>
         </ModalRoot>
