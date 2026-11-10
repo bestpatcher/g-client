@@ -57,12 +57,14 @@ async function setNvidiaProof(enabled: boolean) {
     showToast({ text: enabled ? "Nvidia Proof on, hidden from ShadowPlay and Instant Replay." : "Nvidia Proof off.", variant: "success" });
 }
 
-function VolumeSection() {
-    const me = UserStore.getCurrentUser()?.id;
-    const channelId = useStateFromStores([SelectedChannelStore], () => SelectedChannelStore.getVoiceChannelId());
-    const voiceStates = useStateFromStores([VoiceStateStore], () =>
-        channelId ? Object.values(VoiceStateStore.getVoiceStatesForChannel(channelId) ?? {}) : []
-    );
+const VolumeSection = ErrorBoundary.wrap(() => {
+    const me = UserStore.getCurrentUser()?.id ?? "";
+    const channelId = useStateFromStores([SelectedChannelStore], () => SelectedChannelStore.getVoiceChannelId() ?? "");
+    const voiceStates = useStateFromStores([VoiceStateStore], () => {
+        if (!channelId) return [];
+        const states = VoiceStateStore.getVoiceStatesForChannel(channelId);
+        return states ? Object.values(states) : [];
+    }, [channelId]);
 
     const others = voiceStates.filter((vs: any) => vs.userId !== me);
     if (!others.length) return null;
@@ -73,21 +75,21 @@ function VolumeSection() {
             {others.map((vs: any) => {
                 const user = UserStore.getUser(vs.userId);
                 const name = user?.globalName ?? user?.username ?? vs.userId;
-                const currentVol = MediaEngineStore.getLocalVolume(vs.userId) ?? 100;
+                const vol = MediaEngineStore.getLocalVolume?.(vs.userId) ?? 100;
                 return (
                     <Menu.MenuControlItem
                         key={vs.userId}
-                        id={`fvs-vol-${vs.userId}`}
-                        label={`${name}: ${Math.round(currentVol)}%`}
+                        id={`gsp-vol-${vs.userId}`}
+                        label={`${name}: ${Math.round(vol)}%`}
                         control={(controlProps: any, ref: any) => (
                             <Slider
                                 {...controlProps}
                                 ref={ref}
-                                initialValue={currentVol}
+                                initialValue={vol}
                                 minValue={0}
                                 maxValue={200}
                                 onValueChange={(v: number) => {
-                                    MediaEngineStore.setLocalVolume(vs.userId, Math.round(v));
+                                    MediaEngineStore.setLocalVolume?.(vs.userId, Math.round(v));
                                 }}
                             />
                         )}
@@ -96,7 +98,7 @@ function VolumeSection() {
             })}
         </>
     );
-}
+}, { noop: true });
 
 const ShieldMenu = ErrorBoundary.wrap(() => {
     const { enabled, nvidiaProof, friendCount, messageCount } = settings.use(["enabled", "nvidiaProof", "friendCount", "messageCount"]);
