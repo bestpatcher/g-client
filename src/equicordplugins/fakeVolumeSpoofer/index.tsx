@@ -98,14 +98,20 @@ function patchVolumeMenu(children: any[], props: { user?: { id: string; }; }) {
 
     const fakeVol = getFakeVolume(userId);
 
-    // Replace with a fake slider. Right-click the slider OR click the "User Volume"
-    // label to open the hidden real volume modal. No visible extra menu item.
-    target[sliderIdx] = (
-        <Menu.MenuControlItem
-            key="fake-volume"
-            id="user-volume"
+    // Replace with two items:
+    // 1. A clickable "User Volume" label that opens the real volume modal
+    // 2. The fake slider below it (right-click also opens modal)
+    target.splice(sliderIdx, 1,
+        <Menu.MenuItem
+            key="fake-volume-label"
+            id="user-volume-label"
             label="User Volume"
             action={() => openRealVolumeModal(userId)}
+        />,
+        <Menu.MenuControlItem
+            key="fake-volume-slider"
+            id="user-volume"
+            label=""
             control={(controlProps: any, ref: any) => (
                 <div
                     onContextMenu={(e: React.MouseEvent) => {
