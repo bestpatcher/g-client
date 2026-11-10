@@ -12,49 +12,34 @@ import { isAllowed } from "@utils/gAccess";
 import { Margins } from "@utils/margins";
 import { removeFromArray } from "@utils/misc";
 import definePlugin from "@utils/types";
-import { IconUtils, MediaEngineStore, Menu, React, SelectedChannelStore, Slider, UserStore, VoiceStateStore, useStateFromStores } from "@webpack/common";
+import { FluxDispatcher, IconUtils, MediaEngineStore, React, SelectedChannelStore, Slider, UserStore, VoiceStateStore, useStateFromStores } from "@webpack/common";
 
-// userId → real audio volume (what Call Volume tab controls)
+// userId → real audio volume (set in the Call Volume tab)
 const realVolumes = new Map<string, number>();
-// userId → fake display volume (what Discord's own slider shows)
+// userId → fake display value shown on Discord's own User Volume slider
 const fakeVolumes = new Map<string, number>();
 
-let origSetLocalVolume: ((userId: string, volume: number, context?: any) => void) | null = null;
-
-function installHook() {
-    if (origSetLocalVolume || !MediaEngineStore?.setLocalVolume) return;
-    origSetLocalVolume = MediaEngineStore.setLocalVolume.bind(MediaEngineStore);
-    MediaEngineStore.setLocalVolume = (userId: string, volume: number, context?: any) => {
-        // If Call Volume tab has set a real volume for this user, ignore Discord's call
-        // (which comes from the fake slider) and apply our stored real volume instead.
-        if (realVolumes.has(userId)) {
-            origSetLocalVolume!(userId, realVolumes.get(userId)!, context);
-        } else {
-            origSetLocalVolume!(userId, volume, context);
-        }
-    };
-}
-
-function uninstallHook() {
-    if (origSetLocalVolume && MediaEngineStore?.setLocalVolume) {
-        MediaEngineStore.setLocalVolume = origSetLocalVolume;
-    }
-    origSetLocalVolume = null;
-}
+// True only while WE are dispatching, so our own volume changes aren't reverted.
+let applying = false;
 
 function getRealVolume(userId: string) {
     return realVolumes.get(userId) ?? MediaEngineStore.getLocalVolume?.(userId) ?? 100;
 }
+
 function setRealVolume(userId: string, v: number) {
     realVolumes.set(userId, v);
-    // Call the original (unhooked) setter so our hook doesn't block us
-    if (origSetLocalVolume) origSetLocalVolume(userId, v);
-    else MediaEngineStore.setLocalVolume?.(userId, v);
-}
-function getFakeVolume(userId: string) {
-    return fakeVolumes.get(userId) ?? 100;
+    applying = true;
+    FluxDispatcher.dispatch({ type: "AUDIO_SET_LOCAL_VOLUME", context: "default", userId, volume: v });
+    applying = false;
 }
 
+function getFakeVolume(userId: string) {
+    return fakeVolumes.get(userId) ?? getRealVolume(userId);
+}
+
+// Discord's native User Volume slider: keep it draggable and let it show whatever
+// value it's dragged to, but never let it touch real audio. We swap its onValueChange
+// for one that only records a fake display value.
 function patchUserVolumeMenu(children: any[], props: { user?: { id: string; }; }) {
     const userId = props.user?.id;
     if (!userId) return;
@@ -63,7 +48,6 @@ function patchUserVolumeMenu(children: any[], props: { user?: { id: string; }; }
         for (let i = 0; i < arr.length; i++) {
             const c = arr[i];
             if (!c?.props) continue;
-            // Found the user-volume slider
             if (c.props.id === "user-volume" || (typeof c.props.label === "string" && c.props.label.includes("Volume") && c.props.control)) {
                 const origControl = c.props.control;
                 arr[i] = React.cloneElement(c, {
@@ -78,7 +62,6 @@ function patchUserVolumeMenu(children: any[], props: { user?: { id: string; }; }
                 });
                 return true;
             }
-            // Recurse into group children
             const gc = c.props.children;
             if (Array.isArray(gc) && findAndReplace(gc)) return true;
         }
@@ -101,7 +84,6 @@ interface VoiceUser {
     name: string;
     avatarURL: string;
 }
-
 
 function CallVolumeTab() {
     const me = UserStore.getCurrentUser()?.id ?? "";
@@ -142,7 +124,7 @@ function CallVolumeTab() {
     return (
         <SettingsTab title="Call Volume">
             <Paragraph className={Margins.bottom16}>
-                Drag a slider to set their real volume (0–200%). The Discord User Volume slider is spoofed separately.
+                Drag a slider to set their real volume (0–200%). The Discord User Volume slider is fake and does not change what you hear.
             </Paragraph>
             <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
                 {others.map(u => (
@@ -190,8 +172,18 @@ export default definePlugin({
         "group-dm-context": patchUserVolumeMenu,
     },
 
+    // Backup guard: if Discord's fake slider ever manages to change a user's real volume
+    // through its own dispatch path, snap it back to the value set in the Call Volume tab.
+    flux: {
+        AUDIO_SET_LOCAL_VOLUME(payload: { userId: string; volume: number; }) {
+            if (applying) return;
+            const real = realVolumes.get(payload.userId);
+            if (real === undefined || payload.volume === real) return;
+            setTimeout(() => setRealVolume(payload.userId, real), 0);
+        }
+    },
+
     start() {
-        installHook();
         if (!isAllowed()) return;
         SettingsPlugin.customEntries.push({
             key: "equicord_call_volume",
@@ -202,7 +194,6 @@ export default definePlugin({
     },
 
     stop() {
-        uninstallHook();
         removeFromArray(SettingsPlugin.customEntries, (e: any) => e.key === "equicord_call_volume");
         realVolumes.clear();
         fakeVolumes.clear();
