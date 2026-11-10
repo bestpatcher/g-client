@@ -121,7 +121,7 @@ function MassDMModal({ modalProps }: { modalProps: any; }) {
                 }
 
                 sent++;
-                await sleep(400);
+                await sleep(5000);
             } catch {
                 failed++;
             }
