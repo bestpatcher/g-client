@@ -116,6 +116,7 @@ export const CspPolicies: PolicyMap = {
     "shiggy.thororen.com": ImageSrc,
 
     "gmt-license-api-1.onrender.com": ConnectSrc, // Custom Profile directory (GCustomProfile plugin)
+    "www.cordspoofer.com": ImageSrc, // Nitro tier badge art not available on Discord's own CDN (GCustomProfile plugin)
 
     "gb.obamabot.me": ImageSrc,
     "nekocord.dev": ImageSrc,

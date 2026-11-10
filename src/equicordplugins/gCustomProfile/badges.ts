@@ -13,6 +13,10 @@ export interface BadgeDef {
 }
 
 const BADGE_ICON = (hash: string) => `https://cdn.discordapp.com/badge-icons/${hash}.png`;
+// Not on Discord's own CDN under a stable hash; mirrored by a third-party
+// profile-spoofing tool whose whole purpose is faithfully copying these.
+// Unverified against the real client, confirm visually once shipped.
+const TIER_ICON = (tier: string) => `https://www.cordspoofer.com/assets/img/badges/${tier}.png`;
 
 export const BADGE_CATALOG: BadgeDef[] = [
     { id: "staff", name: "Discord Staff", color: "#5865f2", url: BADGE_ICON("5e74e9b61934fc1f67c65515d1f7e60d") },
@@ -32,14 +36,14 @@ export const BADGE_CATALOG: BadgeDef[] = [
 
 export const NITRO_TIERS: BadgeDef[] = [
     { id: "starter", name: "Nitro", color: "#ff73fa", url: BADGE_ICON("2ba85e8026a8614b640c2837bcdfe21b") },
-    { id: "bronze", name: "Bronze (1 month)", color: "#c2791e" },
-    { id: "silver", name: "Silver (3 months)", color: "#9aa3ab" },
-    { id: "gold", name: "Gold (6 months)", color: "#e8b923" },
-    { id: "platinum", name: "Platinum (1 year)", color: "#6bd6e8" },
-    { id: "diamond", name: "Diamond (2 years)", color: "#7fd4f0" },
-    { id: "emerald", name: "Emerald (3 years)", color: "#2ecc71" },
-    { id: "ruby", name: "Ruby (5 years)", color: "#e0245e" },
-    { id: "opal", name: "Opal (6+ years)", color: "#c58df0" }
+    { id: "bronze", name: "Bronze (1 month)", color: "#c2791e", url: TIER_ICON("bronze") },
+    { id: "silver", name: "Silver (3 months)", color: "#9aa3ab", url: TIER_ICON("silver") },
+    { id: "gold", name: "Gold (6 months)", color: "#e8b923", url: TIER_ICON("gold") },
+    { id: "platinum", name: "Platinum (1 year)", color: "#6bd6e8", url: TIER_ICON("platinum") },
+    { id: "diamond", name: "Diamond (2 years)", color: "#7fd4f0", url: TIER_ICON("diamond") },
+    { id: "emerald", name: "Emerald (3 years)", color: "#2ecc71", url: TIER_ICON("emerald") },
+    { id: "ruby", name: "Ruby (5 years)", color: "#e0245e", url: TIER_ICON("ruby") },
+    { id: "opal", name: "Opal (6+ years)", color: "#c58df0", url: TIER_ICON("opal") }
 ];
 
 export const GIFT_TIERS: BadgeDef[] = [
