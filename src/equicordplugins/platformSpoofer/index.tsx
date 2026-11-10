@@ -45,6 +45,12 @@ const PLATFORMS = {
         browser_user_agent: "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36",
         os_version: "10.0.19045",
     },
+    VR: {
+        os: "Android",
+        browser: "Discord VR",
+        browser_user_agent: "Discord/253002 (Android 10; Meta Quest 3)",
+        os_version: "10",
+    },
 } as const;
 
 type Platform = keyof typeof PLATFORMS;
