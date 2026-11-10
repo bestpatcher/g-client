@@ -4,7 +4,6 @@
  * SPDX-License-Identifier: GPL-3.0-or-later
  */
 
-import { findGroupChildrenByChildId } from "@api/ContextMenu";
 import { EquicordDevs } from "@utils/constants";
 import { Logger } from "@utils/Logger";
 import { sleep } from "@utils/misc";
@@ -36,7 +35,7 @@ const purging = new Set<string>();
 
 function getDmChannelId(userId: string): string | null {
     for (const id of PrivateChannelSortStore.getPrivateChannelIds()) {
-        const ch = ChannelStore.getChannel(id);
+        const ch = ChannelStore.getChannel(id) as any;
         if (ch?.type === 1 && ch.recipients?.includes(userId)) return id;
     }
     return null;
@@ -94,6 +93,59 @@ async function purgeChannel(channelId: string) {
     showToast({ text: `Purged ${deleted} messages${skipped.size ? `, skipped ${skipped.size}` : ""}.`, variant: "success" });
 }
 
+function insertPurgeItem(children: any[], user: any) {
+    const me = UserStore.getCurrentUser();
+    if (!me || user.id === me.id) return;
+
+    const purgeItem = (
+        <Menu.MenuItem
+            id="vc-purge"
+            label="Purge"
+            color="danger"
+        >
+            <Menu.MenuItem
+                id="vc-purge-all"
+                label="Purge Everything"
+                color="danger"
+                action={() => {
+                    const channelId = getDmChannelId(user.id);
+                    if (!channelId) {
+                        showToast({ text: "No DM channel found with this user.", variant: "danger" });
+                        return;
+                    }
+                    if (purging.has(channelId)) {
+                        purging.delete(channelId);
+                        showToast({ text: "Purge stopped.", variant: "success" });
+                        return;
+                    }
+                    Alerts.show({
+                        title: "Purge Everything",
+                        body: `Delete all your messages in your DM with ${user.username}? This cannot be undone.`,
+                        confirmText: "Purge",
+                        confirmColor: "vc-text-danger",
+                        cancelText: "Cancel",
+                        onConfirm: () => {
+                            purgeChannel(channelId).catch(e => {
+                                logger.error("Purge failed", e);
+                                purging.delete(channelId);
+                                showToast({ text: `Purge failed${(e as RestError).status ? ` (${(e as RestError).status})` : ""}.`, variant: "danger" });
+                            });
+                        }
+                    });
+                }}
+            />
+        </Menu.MenuItem>
+    );
+
+    // Insert above "message-logger" if present, otherwise append
+    const mlIdx = children.findIndex((c: any) => c?.props?.id === "message-logger");
+    if (mlIdx !== -1) {
+        children.splice(mlIdx, 0, purgeItem);
+    } else {
+        children.push(purgeItem);
+    }
+}
+
 export default definePlugin({
     name: "MessagePurger",
     description: "Right-click a user in DMs to purge all your messages in that conversation.",
@@ -101,62 +153,11 @@ export default definePlugin({
     dependencies: ["ContextMenuAPI"],
 
     contextMenus: {
-        "user-context"(children, { user }) {
-            if (!user) return;
-
-            const me = UserStore.getCurrentUser();
-            if (!me || user.id === me.id) return;
-
-            const purgeItem = (
-                <Menu.MenuItem
-                    id="vc-purge"
-                    label="Purge"
-                    color="danger"
-                >
-                    <Menu.MenuItem
-                        id="vc-purge-all"
-                        label="Purge Everything"
-                        color="danger"
-                        action={() => {
-                            const channelId = getDmChannelId(user.id);
-                            if (!channelId) {
-                                showToast({ text: "No DM channel found with this user.", variant: "danger" });
-                                return;
-                            }
-                            if (purging.has(channelId)) {
-                                purging.delete(channelId);
-                                showToast({ text: "Purge stopped.", variant: "success" });
-                                return;
-                            }
-                            Alerts.show({
-                                title: "Purge Everything",
-                                body: `Delete all your messages in your DM with ${user.username}? This cannot be undone.`,
-                                confirmText: "Purge",
-                                confirmColor: "vc-text-danger",
-                                cancelText: "Cancel",
-                                onConfirm: () => {
-                                    purgeChannel(channelId).catch(e => {
-                                        logger.error("Purge failed", e);
-                                        purging.delete(channelId);
-                                        showToast({ text: `Purge failed${(e as RestError).status ? ` (${(e as RestError).status})` : ""}.`, variant: "danger" });
-                                    });
-                                }
-                            });
-                        }}
-                    />
-                </Menu.MenuItem>
-            );
-
-            const group = findGroupChildrenByChildId("message-logger", children);
-            if (group) {
-                const idx = group.findIndex((c: any) => c?.props?.id === "message-logger");
-                if (idx !== -1) {
-                    group.splice(idx, 0, purgeItem);
-                    return;
-                }
-            }
-
-            children.push(purgeItem);
+        "user-context"(children, props) {
+            if (props?.user) insertPurgeItem(children, props.user);
+        },
+        "gdm-context"(children, props) {
+            if (props?.user) insertPurgeItem(children, props.user);
         }
     },
 
