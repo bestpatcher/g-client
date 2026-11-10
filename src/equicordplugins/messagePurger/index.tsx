@@ -102,10 +102,10 @@ async function purgeChannel(guildId: string | null, channelId: string, rerender:
     showToast({ text: `Purged ${deleted} messages${skipped.size ? `, skipped ${skipped.size}` : ""}.`, variant: "success" });
 }
 
-function PurgeIcon() {
+function PurgeIcon({ color }: { color?: string; }) {
     return (
         <svg width="20" height="20" viewBox="0 0 24 24" aria-hidden="true">
-            <path fill="currentColor" d="M9 3h6l1 2h4v2H4V5h4l1-2Zm-3 6h12l-1 12H7L6 9Z" />
+            <path fill={color ?? "currentColor"} d="M9 3h6l1 2h4v2H4V5h4l1-2Zm-3 6h12l-1 12H7L6 9Z" />
         </svg>
     );
 }
@@ -134,9 +134,7 @@ const PurgeButton: ChatBarButtonFactory = ({ channel, isMainChat }) => {
                 });
             }}
         >
-            <span style={{ color: isPurging ? "var(--status-danger)" : undefined }}>
-                <PurgeIcon />
-            </span>
+            <PurgeIcon color={isPurging ? "var(--status-danger)" : undefined} />
         </ChatBarButton>
     );
 };
@@ -147,7 +145,7 @@ export default definePlugin({
     authors: [EquicordDevs.nobody],
 
     chatBarButton: {
-        icon: PurgeIcon,
+        icon: () => <PurgeIcon />,
         render: PurgeButton
     },
 
