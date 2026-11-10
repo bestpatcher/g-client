@@ -123,11 +123,12 @@ function GemIcon({ name, color }: { name: string; color: string; }) {
 }
 
 function makeBadge(def: BadgeDef, hasBadge: (source: ProfileSource) => boolean): ProfileBadge {
+    const displayName = def.displayName ?? def.name;
     const base = {
         id: `gcustomprofile-${def.id}`,
-        description: def.name,
-        name: def.name,
-        infoLabel: "Discord",
+        description: displayName,
+        name: displayName,
+        infoLabel: def.infoLabel ?? "Discord",
         position: BadgePosition.START,
         shouldShow: ({ userId }: { userId: string; }) => {
             const source = resolveOverride(userId);
