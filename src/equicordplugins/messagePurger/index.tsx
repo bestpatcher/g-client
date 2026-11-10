@@ -15,7 +15,6 @@ interface Hit {
     id: string;
     author: { id: string; };
     channel_id: string;
-    type: number;
 }
 
 interface RestResponse {
@@ -29,7 +28,6 @@ interface RestError {
 }
 
 const logger = new Logger("MessagePurger");
-const DELETABLE_TYPES = [0, 19, 20];
 const DELETE_DELAY_MS = 350;
 
 let stopRequested = false;
@@ -41,64 +39,51 @@ async function withRetry<T>(request: () => Promise<T>): Promise<T> {
         } catch (e) {
             const err = e as RestError;
             if (err.status !== 429) throw e;
-            await sleep((err.body?.retry_after ?? 1) * 1000);
+            const retryAfter = err.body?.retry_after ?? 1;
+            logger.warn(`Rate limited, retrying in ${retryAfter}s`);
+            await sleep(retryAfter * 1000);
         }
     }
 }
 
-async function purgeChannel(channelId: string, guildId: string | null) {
+async function purgeChannel(channelId: string) {
     const me = UserStore.getCurrentUser().id;
-    const skipped = new Set<string>();
     let deleted = 0;
+    let before: string | undefined;
 
-    const isMine = (m: Hit) => m.author.id === me && DELETABLE_TYPES.includes(m.type) && !skipped.has(m.id);
+    showToast({ text: "Purge started.", variant: "success" });
+    logger.info("Starting purge for channel", channelId, "as user", me);
 
-    async function deleteAll(hits: Hit[]) {
-        for (const { id, channel_id } of hits) {
-            if (stopRequested) return;
+    while (!stopRequested) {
+        const res = await withRetry(() => RestAPI.get({
+            url: Constants.Endpoints.MESSAGES(channelId),
+            query: { limit: 100, ...(before ? { before } : {}) }
+        })) as RestResponse;
+
+        const messages: Hit[] = Array.isArray(res.body) ? res.body : [];
+        logger.info(`Fetched ${messages.length} messages, before=${before}`);
+
+        if (!messages.length) break;
+        before = messages[messages.length - 1].id;
+
+        for (const msg of messages) {
+            if (stopRequested) break;
+            if (msg.author.id !== me) continue;
             try {
-                await withRetry(() => RestAPI.del({ url: Constants.Endpoints.MESSAGE(channel_id, id) }));
+                await withRetry(() => RestAPI.del({ url: Constants.Endpoints.MESSAGE(msg.channel_id, msg.id) }));
                 deleted++;
+                logger.info(`Deleted message ${msg.id} (total: ${deleted})`);
             } catch (e) {
-                logger.warn("Could not delete message", e);
-                skipped.add(id);
+                logger.warn("Could not delete message", msg.id, e);
             }
             await sleep(DELETE_DELAY_MS);
         }
     }
 
-    showToast({ text: "Purge started.", variant: "success" });
-
-    let before: string | undefined;
-    while (!stopRequested) {
-        const res = await withRetry(() => RestAPI.get({
-            url: `/channels/${channelId}/messages`,
-            query: { limit: 100, ...(before ? { before } : {}) }
-        })) as RestResponse;
-        const messages: Hit[] = res.body;
-        if (!messages.length) break;
-        before = messages[messages.length - 1].id;
-        await deleteAll(messages.filter(isMine));
-    }
-
-    while (guildId && !stopRequested) {
-        const res = await withRetry(() => RestAPI.get({
-            url: `/guilds/${guildId}/messages/search`,
-            query: { author_id: me, include_nsfw: true, sort_by: "timestamp", sort_order: "desc" }
-        })) as RestResponse;
-        if (res.status === 202) {
-            await sleep((res.body.retry_after ?? 1) * 1000);
-            continue;
-        }
-        const hits: Hit[] = (res.body.messages as Hit[][]).flat().filter(isMine);
-        if (!hits.length) break;
-        await deleteAll(hits);
-    }
-
     if (stopRequested) {
         showToast({ text: `Purge stopped. Deleted ${deleted} messages.`, variant: "success" });
     } else {
-        showToast({ text: `Purged ${deleted} messages${skipped.size ? `, skipped ${skipped.size}` : ""}.`, variant: "success" });
+        showToast({ text: `Purged ${deleted} messages.`, variant: "success" });
     }
 }
 
@@ -126,7 +111,7 @@ const PurgeButton: ChatBarButtonFactory = ({ channel, isMainChat }) => {
                 stopRequested = false;
                 setPurging(true);
                 showToast({ text: "Starting purge...", variant: "success" });
-                purgeChannel(channel.id, channel.guild_id ?? null)
+                purgeChannel(channel.id)
                     .catch(e => {
                         logger.error("Purge failed", e);
                         showToast({ text: `Purge failed${(e as RestError).status ? ` (${(e as RestError).status})` : ""}.`, variant: "danger" });
