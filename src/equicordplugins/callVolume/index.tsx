@@ -14,6 +14,62 @@ import { removeFromArray } from "@utils/misc";
 import definePlugin from "@utils/types";
 import { ContextMenuApi, IconUtils, MediaEngineStore, Menu, React, SelectedChannelStore, Slider, UserStore, VoiceStateStore, useStateFromStores } from "@webpack/common";
 
+// userId → real audio volume (what Call Volume tab controls)
+const realVolumes = new Map<string, number>();
+// userId → fake display volume (what Discord's own slider shows)
+const fakeVolumes = new Map<string, number>();
+
+function getRealVolume(userId: string) {
+    return realVolumes.get(userId) ?? MediaEngineStore.getLocalVolume?.(userId) ?? 100;
+}
+function setRealVolume(userId: string, v: number) {
+    realVolumes.set(userId, v);
+    MediaEngineStore.setLocalVolume?.(userId, v);
+}
+function getFakeVolume(userId: string) {
+    return fakeVolumes.get(userId) ?? 100;
+}
+
+function patchUserVolumeMenu(children: any[], props: { user?: { id: string; }; }) {
+    const userId = props.user?.id;
+    if (!userId) return;
+
+    function findAndReplace(arr: any[]): boolean {
+        for (let i = 0; i < arr.length; i++) {
+            const c = arr[i];
+            if (!c?.props) continue;
+            // Found the user-volume slider
+            if (c.props.id === "user-volume" || (typeof c.props.label === "string" && c.props.label.includes("Volume") && c.props.control)) {
+                const fakeVol = getFakeVolume(userId);
+                arr[i] = (
+                    <Menu.MenuControlItem
+                        key="cv-fake-slider"
+                        id="user-volume"
+                        label={`User Volume`}
+                        control={(controlProps: any, ref: any) => (
+                            <Slider
+                                {...controlProps}
+                                ref={ref}
+                                initialValue={fakeVol}
+                                minValue={0}
+                                maxValue={200}
+                                onValueChange={(v: number) => { fakeVolumes.set(userId, Math.round(v)); }}
+                            />
+                        )}
+                    />
+                );
+                return true;
+            }
+            // Recurse into group children
+            const gc = c.props.children;
+            if (Array.isArray(gc) && findAndReplace(gc)) return true;
+        }
+        return false;
+    }
+
+    findAndReplace(children);
+}
+
 function MicIcon(props: { width?: number; height?: number; }) {
     return (
         <svg width={props.width ?? 16} height={props.height ?? 16} viewBox="0 0 24 24" fill="currentColor">
@@ -29,7 +85,7 @@ interface VoiceUser {
 }
 
 function VolumeContextMenu({ userId, onClose }: { userId: string; onClose: () => void; }) {
-    const [vol, setVol] = React.useState(() => MediaEngineStore.getLocalVolume?.(userId) ?? 100);
+    const [vol, setVol] = React.useState(() => getRealVolume(userId));
 
     return (
         <Menu.Menu navId={`cv-vol-${userId}`} onClose={onClose}>
@@ -45,7 +101,7 @@ function VolumeContextMenu({ userId, onClose }: { userId: string; onClose: () =>
                         maxValue={200}
                         onValueChange={(v: number) => {
                             setVol(v);
-                            MediaEngineStore.setLocalVolume?.(userId, Math.round(v));
+                            setRealVolume(userId, Math.round(v));
                         }}
                     />
                 )}
@@ -105,7 +161,7 @@ function CallVolumeTab() {
 }
 
 function CallVolumeRow({ user }: { user: VoiceUser; }) {
-    const vol = MediaEngineStore.getLocalVolume?.(user.userId) ?? 100;
+    const vol = getRealVolume(user.userId);
 
     function openVolumeMenu(e: React.MouseEvent) {
         ContextMenuApi.openContextMenu(e, () => (
@@ -124,6 +180,7 @@ function CallVolumeRow({ user }: { user: VoiceUser; }) {
                 borderRadius: 6,
                 cursor: "context-menu",
                 userSelect: "none",
+                background: "var(--background-secondary)",
             }}
         >
             <img
@@ -139,10 +196,17 @@ function CallVolumeRow({ user }: { user: VoiceUser; }) {
 
 export default definePlugin({
     name: "CallVolume",
-    description: "Adds a Call Volume tab to settings where you can right-click call participants to set their real volume.",
+    description: "Adds a Call Volume tab to set real audio levels. The Discord User Volume slider becomes a fake display-only spoof.",
     authors: [EquicordDevs.nobody],
     required: true,
     hidden: true,
+    dependencies: ["ContextMenuAPI"],
+
+    contextMenus: {
+        "user-context": patchUserVolumeMenu,
+        "gdm-context": patchUserVolumeMenu,
+        "group-dm-context": patchUserVolumeMenu,
+    },
 
     start() {
         if (!isAllowed()) return;
@@ -156,5 +220,7 @@ export default definePlugin({
 
     stop() {
         removeFromArray(SettingsPlugin.customEntries, (e: any) => e.key === "equicord_call_volume");
+        realVolumes.clear();
+        fakeVolumes.clear();
     }
 });
