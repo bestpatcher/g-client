@@ -78,14 +78,15 @@ export default definePlugin({
         {
             find: ".identifyStartTime))",
             replacement: {
-                match: /(?<=properties:\{os:\i,browser:\i,(?:release_channel:\i,)?browser_user_agent:\i,browser_version:\i,os_version:\i)/,
-                replace: ",...$self.getSpoof()",
+                match: /(?<=properties:)\{os:\i\.os,browser:\i\.browser,.{0,200}?\}/,
+                replace: "$self.getSpoof($&)",
             },
         },
     ],
 
-    getSpoof() {
+    getSpoof(original: Record<string, string>) {
         const p = settings.store.platform as Platform ?? "Windows";
-        return PLATFORMS[p] ?? PLATFORMS.Windows;
+        const spoof = PLATFORMS[p] ?? PLATFORMS.Windows;
+        return { ...original, ...spoof };
     },
 });
