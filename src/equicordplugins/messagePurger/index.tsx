@@ -8,7 +8,7 @@ import { ChatBarButton, ChatBarButtonFactory } from "@api/ChatButtons";
 import { EquicordDevs } from "@utils/constants";
 import { Logger } from "@utils/Logger";
 import { sleep } from "@utils/misc";
-import definePlugin, { IconComponent, StartAt } from "@utils/types";
+import definePlugin, { IconComponent } from "@utils/types";
 import { Constants, React, RestAPI, showToast, UserStore } from "@webpack/common";
 
 interface Hit {
@@ -146,7 +146,6 @@ export default definePlugin({
     description: "Adds a trash can button to the chat bar to delete all your messages in a channel. Click again to stop.",
     authors: [EquicordDevs.nobody],
     dependencies: ["ChatInputButtonAPI"],
-    startAt: StartAt.Init,
 
     chatBarButton: {
         icon: PurgeIcon,
