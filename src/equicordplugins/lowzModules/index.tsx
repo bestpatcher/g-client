@@ -133,6 +133,15 @@ function MassDMModal({ modalProps }: { modalProps: any; }) {
 
     return (
         <ModalRoot {...modalProps} size="medium">
+            <style>{`
+                .vc-massdm-textarea, .vc-massdm-search {
+                    color: var(--text-normal) !important;
+                    caret-color: var(--text-normal) !important;
+                }
+                .vc-massdm-textarea::placeholder, .vc-massdm-search::placeholder {
+                    color: var(--text-muted) !important;
+                }
+            `}</style>
             <ModalHeader>
                 <span style={{ fontWeight: 700, fontSize: 16, flex: 1 }}>Mass DM</span>
                 <ModalCloseButton onClose={modalProps.onClose} />
@@ -148,6 +157,7 @@ function MassDMModal({ modalProps }: { modalProps: any; }) {
                     overflow: "hidden",
                 }}>
                     <textarea
+                        className="vc-massdm-textarea"
                         value={message}
                         onChange={e => setMessage(e.target.value)}
                         placeholder="Type a message..."
@@ -230,6 +240,7 @@ function MassDMModal({ modalProps }: { modalProps: any; }) {
 
                 {/* Search */}
                 <input
+                    className="vc-massdm-search"
                     value={search}
                     onChange={e => setSearch(e.target.value)}
                     placeholder="Search..."
