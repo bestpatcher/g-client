@@ -8,8 +8,9 @@ import { ChatBarButton, ChatBarButtonFactory } from "@api/ChatButtons";
 import { EquicordDevs } from "@utils/constants";
 import { Logger } from "@utils/Logger";
 import { sleep } from "@utils/misc";
+import { useForceUpdater } from "@utils/react";
 import definePlugin from "@utils/types";
-import { Constants, Menu, RestAPI, showToast, UserStore } from "@webpack/common";
+import { Constants, RestAPI, showToast, UserStore } from "@webpack/common";
 
 interface Hit {
     id: string;
@@ -34,6 +35,11 @@ const DELETE_DELAY_MS = 350;
 
 let isPurging = false;
 let stopRequested = false;
+const rerenderListeners = new Set<() => void>();
+
+function triggerRerender() {
+    rerenderListeners.forEach(fn => fn());
+}
 
 async function withRetry<T>(request: () => Promise<T>): Promise<T> {
     while (true) {
@@ -48,14 +54,6 @@ async function withRetry<T>(request: () => Promise<T>): Promise<T> {
 }
 
 async function purgeChannel(channelId: string, guildId: string | null) {
-    if (isPurging) {
-        stopRequested = true;
-        return;
-    }
-
-    isPurging = true;
-    stopRequested = false;
-
     const me = UserStore.getCurrentUser().id;
     const skipped = new Set<string>();
     let deleted = 0;
@@ -105,6 +103,7 @@ async function purgeChannel(channelId: string, guildId: string | null) {
     }
 
     isPurging = false;
+    triggerRerender();
     if (stopRequested) {
         showToast({ text: `Purge stopped. Deleted ${deleted} messages.`, variant: "success" });
     } else {
@@ -112,29 +111,42 @@ async function purgeChannel(channelId: string, guildId: string | null) {
     }
 }
 
-function PurgeIcon() {
+function PurgeIcon({ color }: { color?: string; }) {
     return (
         <svg width="20" height="20" viewBox="0 0 24 24" aria-hidden="true">
-            <path fill="currentColor" d="M9 3h6l1 2h4v2H4V5h4l1-2Zm-3 6h12l-1 12H7L6 9Z" />
+            <path fill={color ?? "currentColor"} d="M9 3h6l1 2h4v2H4V5h4l1-2Zm-3 6h12l-1 12H7L6 9Z" />
         </svg>
     );
 }
 
 const PurgeButton: ChatBarButtonFactory = ({ channel, isMainChat }) => {
+    const forceUpdate = useForceUpdater();
+
     if (!isMainChat) return null;
+
+    // Register for re-renders when purge state changes
+    rerenderListeners.add(forceUpdate);
 
     return (
         <ChatBarButton
             tooltip={isPurging ? "Stop purging" : "Purge your messages in this channel"}
             onClick={() => {
+                if (isPurging) {
+                    stopRequested = true;
+                    return;
+                }
+                isPurging = true;
+                stopRequested = false;
+                triggerRerender();
                 purgeChannel(channel.id, channel.guild_id ?? null).catch(e => {
                     logger.error("Purge failed", e);
                     isPurging = false;
+                    triggerRerender();
                     showToast({ text: `Purge failed${(e as RestError).status ? ` (${(e as RestError).status})` : ""}.`, variant: "danger" });
                 });
             }}
         >
-            <PurgeIcon />
+            <PurgeIcon color={isPurging ? "var(--status-danger)" : undefined} />
         </ChatBarButton>
     );
 };
@@ -153,5 +165,6 @@ export default definePlugin({
     stop() {
         stopRequested = true;
         isPurging = false;
+        rerenderListeners.clear();
     }
 });
