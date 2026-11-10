@@ -14,7 +14,7 @@ import { isAllowed } from "@utils/gAccess";
 import { Margins } from "@utils/margins";
 import { classes, removeFromArray } from "@utils/misc";
 import definePlugin, { OptionType } from "@utils/types";
-import { FluxDispatcher, IconUtils, MediaEngineStore, React, SelectedChannelStore, Slider, UserStore, VoiceStateStore, useStateFromStores } from "@webpack/common";
+import { FluxDispatcher, IconUtils, MediaEngineStore, Menu, React, SelectedChannelStore, Slider, UserStore, VoiceStateStore, useStateFromStores } from "@webpack/common";
 
 const settings = definePluginSettings({
     spoofEnabled: { type: OptionType.BOOLEAN, default: true, description: "Spoof the Discord User Volume slider" }
@@ -44,9 +44,24 @@ function getFakeVolume(userId: string) {
     return fakeVolumes.get(userId) ?? 100;
 }
 
-// Discord's native User Volume slider: keep it draggable and let it show whatever
-// value it's dragged to, but never let it touch real audio. We swap its onValueChange
-// for one that only records a fake display value.
+// Independent fake slider. Holds its own state so it's draggable and never reads real audio.
+function FakeVolumeSlider({ userId, controlProps, controlRef }: { userId: string; controlProps: any; controlRef: any; }) {
+    const [v, setV] = React.useState(() => getFakeVolume(userId));
+    return (
+        <Menu.MenuSliderControl
+            ref={controlRef}
+            {...controlProps}
+            minValue={0}
+            maxValue={200}
+            value={v}
+            onChange={(nv: number) => { setV(nv); fakeVolumes.set(userId, Math.round(nv)); }}
+            renderValue={(nv: number) => `${Math.round(nv)}%`}
+        />
+    );
+}
+
+// Replace Discord's real User Volume slider with a fully independent fake one that looks
+// native but never touches real audio. Real volume is controlled from the Call Volume tab.
 function patchUserVolumeMenu(children: any[], props: { user?: { id: string; }; }) {
     if (!settings.store.spoofEnabled) return;
     const userId = props.user?.id;
@@ -57,17 +72,16 @@ function patchUserVolumeMenu(children: any[], props: { user?: { id: string; }; }
             const c = arr[i];
             if (!c?.props) continue;
             if (c.props.id === "user-volume" || (typeof c.props.label === "string" && c.props.label.includes("Volume") && c.props.control)) {
-                const origControl = c.props.control;
-                arr[i] = React.cloneElement(c, {
-                    control: (controlProps: any, ref: any) => {
-                        const el = origControl(controlProps, ref);
-                        if (!el) return el;
-                        return React.cloneElement(el, {
-                            initialValue: getFakeVolume(userId),
-                            onValueChange: (v: number) => { fakeVolumes.set(userId, Math.round(v)); },
-                        });
-                    }
-                });
+                arr[i] = (
+                    <Menu.MenuControlItem
+                        key="user-volume"
+                        id="user-volume"
+                        label="User Volume"
+                        control={(controlProps: any, ref: any) => (
+                            <FakeVolumeSlider userId={userId} controlProps={controlProps} controlRef={ref} />
+                        )}
+                    />
+                );
                 return true;
             }
             const gc = c.props.children;
