@@ -9,7 +9,7 @@ import { EquicordDevs } from "@utils/constants";
 import { Logger } from "@utils/Logger";
 import { sleep } from "@utils/misc";
 import definePlugin, { IconComponent } from "@utils/types";
-import { Constants, React, RestAPI, showToast, UserStore } from "@webpack/common";
+import { Constants, React, RestAPI, UserStore } from "@webpack/common";
 
 interface Hit {
     id: string;
@@ -51,7 +51,6 @@ async function purgeChannel(channelId: string) {
     let deleted = 0;
     let before: string | undefined;
 
-    showToast({ text: "Purge started.", variant: "success" });
     logger.info("Starting purge for channel", channelId, "as user", me);
 
     while (!stopRequested) {
@@ -61,7 +60,7 @@ async function purgeChannel(channelId: string) {
         })) as RestResponse;
 
         const messages: Hit[] = Array.isArray(res.body) ? res.body : [];
-        logger.info(`Fetched ${messages.length} messages, before=${before}`);
+        logger.info(`Fetched ${messages.length} messages`);
 
         if (!messages.length) break;
         before = messages[messages.length - 1].id;
@@ -80,11 +79,7 @@ async function purgeChannel(channelId: string) {
         }
     }
 
-    if (stopRequested) {
-        showToast({ text: `Purge stopped. Deleted ${deleted} messages.`, variant: "success" });
-    } else {
-        showToast({ text: `Purged ${deleted} messages.`, variant: "success" });
-    }
+    logger.info(`Purge complete. Deleted ${deleted} messages.`);
 }
 
 const PurgeIcon: IconComponent = ({ width = 20, height = 20, className }) => (
@@ -102,20 +97,17 @@ const PurgeButton: ChatBarButtonFactory = ({ channel, isMainChat }) => {
         <ChatBarButton
             tooltip={purging ? "Stop purging" : "Purge your messages in this channel"}
             onClick={() => {
-                logger.info("Purge button clicked, purging =", purging, "channel =", channel.id);
                 if (purging) {
                     stopRequested = true;
                     setPurging(false);
+                    logger.info("Purge stopped by user");
                     return;
                 }
                 stopRequested = false;
                 setPurging(true);
-                showToast({ text: "Starting purge...", variant: "success" });
+                logger.info("Purge started by user for channel", channel.id);
                 purgeChannel(channel.id)
-                    .catch(e => {
-                        logger.error("Purge failed", e);
-                        showToast({ text: `Purge failed${(e as RestError).status ? ` (${(e as RestError).status})` : ""}.`, variant: "danger" });
-                    })
+                    .catch(e => logger.error("Purge failed", e))
                     .finally(() => setPurging(false));
             }}
         >
