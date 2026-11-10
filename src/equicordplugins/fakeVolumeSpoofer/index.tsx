@@ -8,11 +8,9 @@ import { EquicordDevs } from "@utils/constants";
 import { openModal, ModalRoot, ModalHeader, ModalContent, ModalFooter, ModalSize } from "@utils/modal";
 import definePlugin, { makeRange } from "@utils/types";
 import { Text } from "@components/index";
-import { MediaEngineStore, Menu, React, Slider } from "@webpack/common";
+import { ContextMenuApi, MediaEngineStore, Menu, React, Slider } from "@webpack/common";
 
-// Fake displayed volumes per user (what Discord/observers see)
 const fakeVolumes = new Map<string, number>();
-// Real audio volumes per user (what actually plays)
 const realVolumes = new Map<string, number>();
 
 function getFakeVolume(userId: string): number {
@@ -30,9 +28,9 @@ function setRealVolume(userId: string, volume: number) {
 }
 
 function openRealVolumeModal(userId: string) {
+    ContextMenuApi.closeContextMenu();
     openModal(props => {
         const [vol, setVol] = React.useState(getRealVolume(userId));
-
         return (
             <ModalRoot {...props} size={ModalSize.SMALL}>
                 <ModalHeader>
@@ -98,39 +96,31 @@ function patchVolumeMenu(children: any[], props: { user?: { id: string; }; }) {
 
     const fakeVol = getFakeVolume(userId);
 
-    // Replace with two items:
-    // 1. A clickable "User Volume" label that opens the real volume modal
-    // 2. The fake slider below it (right-click also opens modal)
+    // Replace original slider with fake one + hidden trigger item above it
     target.splice(sliderIdx, 1,
+        // Clicking "User Volume" opens the real volume modal
         <Menu.MenuItem
-            key="fake-volume-label"
-            id="user-volume-label"
+            key="fvs-trigger"
+            id="fvs-trigger"
             label="User Volume"
             action={() => openRealVolumeModal(userId)}
         />,
+        // Fake movable slider — display only, no effect on audio
         <Menu.MenuControlItem
-            key="fake-volume-slider"
+            key="fvs-slider"
             id="user-volume"
             label=""
             control={(controlProps: any, ref: any) => (
-                <div
-                    onContextMenu={(e: React.MouseEvent) => {
-                        e.preventDefault();
-                        e.stopPropagation();
-                        openRealVolumeModal(userId);
+                <Slider
+                    {...controlProps}
+                    ref={ref}
+                    initialValue={fakeVol}
+                    minValue={0}
+                    maxValue={200}
+                    onValueChange={(v: number) => {
+                        fakeVolumes.set(userId, Math.round(v));
                     }}
-                >
-                    <Slider
-                        {...controlProps}
-                        ref={ref}
-                        initialValue={fakeVol}
-                        minValue={0}
-                        maxValue={200}
-                        onValueChange={(v: number) => {
-                            fakeVolumes.set(userId, Math.round(v));
-                        }}
-                    />
-                </div>
+                />
             )}
         />
     );
@@ -138,7 +128,7 @@ function patchVolumeMenu(children: any[], props: { user?: { id: string; }; }) {
 
 export default definePlugin({
     name: "FakeVolumeSpoofer",
-    description: "Spoofs the User Volume slider so observers see a fake value. Click the label or right-click the slider to set the real hidden audio level.",
+    description: "Spoofs the User Volume slider so observers see a fake value. Click the User Volume label to set the real hidden audio level.",
     authors: [EquicordDevs.nobody],
     dependencies: ["ContextMenuAPI"],
 
