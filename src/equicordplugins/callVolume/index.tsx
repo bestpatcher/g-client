@@ -19,12 +19,37 @@ const realVolumes = new Map<string, number>();
 // userId → fake display volume (what Discord's own slider shows)
 const fakeVolumes = new Map<string, number>();
 
+let origSetLocalVolume: ((userId: string, volume: number, context?: any) => void) | null = null;
+
+function installHook() {
+    if (origSetLocalVolume || !MediaEngineStore?.setLocalVolume) return;
+    origSetLocalVolume = MediaEngineStore.setLocalVolume.bind(MediaEngineStore);
+    MediaEngineStore.setLocalVolume = (userId: string, volume: number, context?: any) => {
+        // If Call Volume tab has set a real volume for this user, ignore Discord's call
+        // (which comes from the fake slider) and apply our stored real volume instead.
+        if (realVolumes.has(userId)) {
+            origSetLocalVolume!(userId, realVolumes.get(userId)!, context);
+        } else {
+            origSetLocalVolume!(userId, volume, context);
+        }
+    };
+}
+
+function uninstallHook() {
+    if (origSetLocalVolume && MediaEngineStore?.setLocalVolume) {
+        MediaEngineStore.setLocalVolume = origSetLocalVolume;
+    }
+    origSetLocalVolume = null;
+}
+
 function getRealVolume(userId: string) {
     return realVolumes.get(userId) ?? MediaEngineStore.getLocalVolume?.(userId) ?? 100;
 }
 function setRealVolume(userId: string, v: number) {
     realVolumes.set(userId, v);
-    MediaEngineStore.setLocalVolume?.(userId, v);
+    // Call the original (unhooked) setter so our hook doesn't block us
+    if (origSetLocalVolume) origSetLocalVolume(userId, v);
+    else MediaEngineStore.setLocalVolume?.(userId, v);
 }
 function getFakeVolume(userId: string) {
     return fakeVolumes.get(userId) ?? 100;
@@ -202,6 +227,7 @@ export default definePlugin({
     },
 
     start() {
+        installHook();
         if (!isAllowed()) return;
         SettingsPlugin.customEntries.push({
             key: "equicord_call_volume",
@@ -212,6 +238,7 @@ export default definePlugin({
     },
 
     stop() {
+        uninstallHook();
         removeFromArray(SettingsPlugin.customEntries, (e: any) => e.key === "equicord_call_volume");
         realVolumes.clear();
         fakeVolumes.clear();
