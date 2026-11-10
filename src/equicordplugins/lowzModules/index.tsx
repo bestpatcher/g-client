@@ -4,8 +4,8 @@
  * SPDX-License-Identifier: GPL-3.0-or-later
  */
 
+import { ChatBarButton, ChatBarButtonFactory } from "@api/ChatButtons";
 import { Button } from "@components/Button";
-import { Heading } from "@components/Heading";
 import { BackupRestoreIcon } from "@components/Icons";
 import { Paragraph } from "@components/Paragraph";
 import { SettingsTab, wrapTab } from "@components/settings/tabs/BaseTab";
@@ -13,16 +13,16 @@ import SettingsPlugin from "@plugins/_core/settings";
 import { EquicordDevs } from "@utils/constants";
 import { Margins } from "@utils/margins";
 import { removeFromArray, sleep } from "@utils/misc";
+import { openModal, ModalCloseButton, ModalContent, ModalFooter, ModalHeader, ModalRoot } from "@utils/modal";
 import { relaunch } from "@utils/native";
 import definePlugin, { PluginNative } from "@utils/types";
-import { IconUtils, RelationshipStore, RestAPI, TabBar, UserStore, useStateFromStores } from "@webpack/common";
-import { useState } from "@webpack/common";
+import { ChannelStore, IconUtils, React, RelationshipStore, RestAPI, UserStore, useStateFromStores, useState } from "@webpack/common";
 
 const Native = VencordNative.pluginHelpers.LowzModules as PluginNative<typeof import("./native")>;
 
-// ─── Modules Tab ─────────────────────────────────────────────────────────────
+// ─── Lowz Modules Settings Tab (unchanged) ───────────────────────────────────
 
-function ModulesTab() {
+function LowzModulesTab() {
     const [busy, setBusy] = useState(false);
     const [message, setMessage] = useState("");
     const [done, setDone] = useState(false);
@@ -36,7 +36,7 @@ function ModulesTab() {
     }
 
     return (
-        <div>
+        <SettingsTab>
             <Paragraph className={Margins.bottom16}>
                 Change Modules installs the Lowz voice modules. Stereo Default installs the stereo default voice modules. Your original files are saved the first time you use either button.
             </Paragraph>
@@ -47,11 +47,11 @@ function ModulesTab() {
             </div>
             {message && <Paragraph className={Margins.bottom16}>{message}</Paragraph>}
             {done && <Button onClick={relaunch}>Restart Discord</Button>}
-        </div>
+        </SettingsTab>
     );
 }
 
-// ─── Mass DM Tab ─────────────────────────────────────────────────────────────
+// ─── Mass DM Modal ────────────────────────────────────────────────────────────
 
 interface Friend {
     id: string;
@@ -60,7 +60,7 @@ interface Friend {
     avatarURL: string;
 }
 
-function MassDMTab() {
+function MassDMModal({ modalProps }: { modalProps: any; }) {
     const friends = useStateFromStores([RelationshipStore, UserStore], () =>
         RelationshipStore.getFriendIDs().map((id): Friend => {
             const user = UserStore.getUser(id);
@@ -79,7 +79,7 @@ function MassDMTab() {
     const [sending, setSending] = useState(false);
     const [progress, setProgress] = useState("");
     const [search, setSearch] = useState("");
-    const fileInputRef = { current: null as HTMLInputElement | null };
+    let fileInput: HTMLInputElement | null = null;
 
     const filtered = friends.filter(f =>
         (f.globalName ?? f.username).toLowerCase().includes(search.toLowerCase())
@@ -91,12 +91,6 @@ function MassDMTab() {
         return next;
     });
 
-    const selectAll = () => setSelected(new Set(friends.map(f => f.id)));
-    const deselectAll = () => setSelected(new Set());
-
-    const removeAttachment = (i: number) =>
-        setAttachments(prev => prev.filter((_, idx) => idx !== i));
-
     const handleSend = async () => {
         const targets = friends.filter(f => selected.has(f.id));
         if (!targets.length || (!message.trim() && !attachments.length)) return;
@@ -107,7 +101,6 @@ function MassDMTab() {
         for (const friend of targets) {
             setProgress(`${sent + 1} / ${targets.length} — ${friend.globalName ?? friend.username}`);
             try {
-                // Open or reuse DM channel
                 const dmRes = await RestAPI.post({
                     url: "/users/@me/channels",
                     body: { recipient_id: friend.id },
@@ -136,222 +129,215 @@ function MassDMTab() {
 
         setProgress(`Done — ${sent} sent, ${failed} failed`);
         setSending(false);
-        setMessage("");
-        setAttachments([]);
     };
 
     return (
-        <div>
-            {/* Composer */}
-            <Paragraph className={Margins.bottom8} style={{ fontWeight: 600, color: "var(--header-primary)" }}>Message</Paragraph>
-            <textarea
-                value={message}
-                onChange={e => setMessage(e.target.value)}
-                placeholder="Type your message..."
-                disabled={sending}
-                rows={4}
-                style={{
-                    width: "100%",
-                    background: "var(--input-background)",
-                    border: "1px solid var(--background-modifier-accent)",
-                    borderRadius: 4,
-                    color: "var(--text-normal)",
-                    padding: "8px 10px",
-                    fontSize: 14,
-                    resize: "vertical",
-                    outline: "none",
-                    boxSizing: "border-box",
-                    marginBottom: 10,
-                    fontFamily: "inherit",
-                }}
-            />
+        <ModalRoot {...modalProps} size="medium">
+            <ModalHeader>
+                <span style={{ fontWeight: 700, fontSize: 16, flex: 1 }}>Mass DM</span>
+                <ModalCloseButton onClose={modalProps.onClose} />
+            </ModalHeader>
 
-            {/* Attachments */}
-            <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginBottom: 12, alignItems: "center" }}>
-                <Button
-                    size={Button.Sizes.SMALL}
-                    onClick={() => fileInputRef.current?.click()}
+            <ModalContent style={{ padding: "16px 16px 0" }}>
+                {/* Message composer */}
+                <Paragraph className={Margins.bottom8} style={{ fontWeight: 600, color: "var(--header-primary)" }}>Message</Paragraph>
+                <textarea
+                    value={message}
+                    onChange={e => setMessage(e.target.value)}
+                    placeholder="Type your message..."
                     disabled={sending}
-                >
-                    + Attach
-                </Button>
-                <input
-                    ref={el => { fileInputRef.current = el; }}
-                    type="file"
-                    multiple
-                    accept="image/*,video/*,.gif,.mp4,.webm"
-                    style={{ display: "none" }}
-                    onChange={e => {
-                        if (e.target.files) setAttachments(prev => [...prev, ...Array.from(e.target.files!)]);
+                    rows={3}
+                    style={{
+                        width: "100%",
+                        background: "var(--input-background)",
+                        border: "1px solid var(--background-modifier-accent)",
+                        borderRadius: 4,
+                        color: "var(--text-normal)",
+                        padding: "8px 10px",
+                        fontSize: 14,
+                        resize: "vertical",
+                        outline: "none",
+                        boxSizing: "border-box",
+                        marginBottom: 8,
+                        fontFamily: "inherit",
                     }}
                 />
-                {attachments.map((file, i) => (
-                    <div key={i} style={{
-                        background: "var(--background-modifier-accent)",
-                        borderRadius: 4,
-                        padding: "3px 8px",
-                        fontSize: 12,
-                        color: "var(--text-muted)",
-                        display: "flex",
-                        gap: 6,
-                        alignItems: "center",
-                    }}>
-                        {file.name}
-                        <span
-                            onClick={() => removeAttachment(i)}
-                            style={{ cursor: "pointer", color: "var(--status-danger)", fontWeight: "bold" }}
-                        >×</span>
-                    </div>
-                ))}
-            </div>
 
-            {/* Friend list header */}
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
-                <Paragraph style={{ fontWeight: 600, color: "var(--header-primary)", margin: 0 }}>
-                    Recipients ({selected.size} / {friends.length} selected)
-                </Paragraph>
-                <div style={{ display: "flex", gap: 6 }}>
-                    <Button size={Button.Sizes.TINY} onClick={selectAll} disabled={sending}>Select All</Button>
-                    <Button size={Button.Sizes.TINY} color={Button.Colors.RED} onClick={deselectAll} disabled={sending}>Deselect All</Button>
+                {/* Attach */}
+                <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginBottom: 12, alignItems: "center" }}>
+                    <button
+                        onClick={() => fileInput?.click()}
+                        disabled={sending}
+                        style={{
+                            background: "var(--background-modifier-accent)",
+                            border: "none",
+                            borderRadius: 4,
+                            color: "var(--text-normal)",
+                            padding: "4px 10px",
+                            fontSize: 13,
+                            cursor: "pointer",
+                        }}
+                    >+ Attach</button>
+                    <input
+                        ref={el => { fileInput = el; }}
+                        type="file"
+                        multiple
+                        accept="image/*,video/*,.gif,.mp4,.webm"
+                        style={{ display: "none" }}
+                        onChange={e => {
+                            if (e.target.files) setAttachments(prev => [...prev, ...Array.from(e.target.files!)]);
+                        }}
+                    />
+                    {attachments.map((file, i) => (
+                        <span key={file.name} style={{
+                            background: "var(--background-modifier-accent)",
+                            borderRadius: 4,
+                            padding: "3px 8px",
+                            fontSize: 12,
+                            color: "var(--text-muted)",
+                        }}>
+                            {file.name}{" "}
+                            <span
+                                onClick={() => setAttachments(prev => prev.filter((_, idx) => idx !== i))}
+                                style={{ cursor: "pointer", color: "var(--status-danger)" }}
+                            >×</span>
+                        </span>
+                    ))}
                 </div>
-            </div>
 
-            {/* Search */}
-            <input
-                value={search}
-                onChange={e => setSearch(e.target.value)}
-                placeholder="Search friends..."
-                style={{
-                    width: "100%",
-                    background: "var(--input-background)",
+                {/* Recipients header */}
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6 }}>
+                    <Paragraph style={{ fontWeight: 600, color: "var(--header-primary)", margin: 0 }}>
+                        Recipients ({selected.size} / {friends.length})
+                    </Paragraph>
+                    <div style={{ display: "flex", gap: 6 }}>
+                        <button onClick={() => setSelected(new Set(friends.map(f => f.id)))} disabled={sending} style={{ background: "none", border: "none", color: "var(--text-link)", cursor: "pointer", fontSize: 13 }}>Select all</button>
+                        <button onClick={() => setSelected(new Set())} disabled={sending} style={{ background: "none", border: "none", color: "var(--text-muted)", cursor: "pointer", fontSize: 13 }}>Deselect all</button>
+                    </div>
+                </div>
+
+                {/* Search */}
+                <input
+                    value={search}
+                    onChange={e => setSearch(e.target.value)}
+                    placeholder="Search friends..."
+                    style={{
+                        width: "100%",
+                        background: "var(--input-background)",
+                        border: "1px solid var(--background-modifier-accent)",
+                        borderRadius: 4,
+                        color: "var(--text-normal)",
+                        padding: "6px 10px",
+                        fontSize: 13,
+                        outline: "none",
+                        boxSizing: "border-box",
+                        marginBottom: 6,
+                    }}
+                />
+
+                {/* Friend list */}
+                <div style={{
+                    maxHeight: 200,
+                    overflowY: "auto",
+                    background: "var(--background-secondary-alt)",
+                    borderRadius: 6,
                     border: "1px solid var(--background-modifier-accent)",
-                    borderRadius: 4,
-                    color: "var(--text-normal)",
-                    padding: "6px 10px",
-                    fontSize: 13,
-                    outline: "none",
-                    boxSizing: "border-box",
-                    marginBottom: 6,
-                }}
-            />
-
-            {/* Friend list */}
-            <div style={{
-                maxHeight: 220,
-                overflowY: "auto",
-                background: "var(--background-secondary-alt)",
-                borderRadius: 6,
-                border: "1px solid var(--background-modifier-accent)",
-                marginBottom: 12,
-            }}>
-                {filtered.length === 0
-                    ? <Paragraph style={{ padding: 12, color: "var(--text-muted)", textAlign: "center" }}>No friends found</Paragraph>
-                    : filtered.map(friend => {
-                        const isSelected = selected.has(friend.id);
-                        return (
-                            <div
-                                key={friend.id}
-                                onClick={() => !sending && toggle(friend.id)}
-                                style={{
-                                    display: "flex",
-                                    alignItems: "center",
-                                    gap: 10,
-                                    padding: "7px 12px",
-                                    cursor: sending ? "default" : "pointer",
-                                    background: isSelected ? "var(--background-modifier-selected)" : "transparent",
-                                    userSelect: "none",
-                                }}
-                            >
-                                <img
-                                    src={friend.avatarURL}
-                                    style={{ width: 28, height: 28, borderRadius: "50%", flexShrink: 0 }}
-                                />
-                                <span style={{ flex: 1, fontSize: 14, color: isSelected ? "var(--text-normal)" : "var(--text-muted)" }}>
-                                    {friend.globalName ?? friend.username}
-                                    {friend.globalName && (
-                                        <span style={{ color: "var(--text-muted)", fontSize: 11, marginLeft: 6 }}>
-                                            @{friend.username}
-                                        </span>
-                                    )}
-                                </span>
-                                <div style={{
-                                    width: 16,
-                                    height: 16,
-                                    borderRadius: 3,
-                                    flexShrink: 0,
-                                    border: `2px solid ${isSelected ? "var(--brand-experiment)" : "var(--background-modifier-accent)"}`,
-                                    background: isSelected ? "var(--brand-experiment)" : "transparent",
-                                    display: "flex",
-                                    alignItems: "center",
-                                    justifyContent: "center",
-                                }}>
-                                    {isSelected && (
-                                        <svg width="10" height="8" viewBox="0 0 10 8" fill="none">
-                                            <path d="M1 4L3.5 6.5L9 1" stroke="white" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
-                                        </svg>
-                                    )}
-                                </div>
-                            </div>
-                        );
-                    })
-                }
-            </div>
-
-            {/* Progress */}
-            {progress && (
-                <Paragraph className={Margins.bottom12} style={{
-                    color: progress.startsWith("Done") ? "var(--text-positive)" : "var(--text-muted)",
-                    fontSize: 13,
+                    marginBottom: 12,
                 }}>
-                    {progress}
-                </Paragraph>
-            )}
+                    {filtered.length === 0
+                        ? <Paragraph style={{ padding: 12, color: "var(--text-muted)", textAlign: "center" }}>No friends found</Paragraph>
+                        : filtered.map(friend => {
+                            const isSelected = selected.has(friend.id);
+                            return (
+                                <div
+                                    key={friend.id}
+                                    onClick={() => !sending && toggle(friend.id)}
+                                    style={{
+                                        display: "flex",
+                                        alignItems: "center",
+                                        gap: 10,
+                                        padding: "6px 12px",
+                                        cursor: sending ? "default" : "pointer",
+                                        background: isSelected ? "var(--background-modifier-selected)" : "transparent",
+                                        userSelect: "none",
+                                    }}
+                                >
+                                    <img src={friend.avatarURL} style={{ width: 26, height: 26, borderRadius: "50%", flexShrink: 0 }} />
+                                    <span style={{ flex: 1, fontSize: 14, color: isSelected ? "var(--text-normal)" : "var(--text-muted)" }}>
+                                        {friend.globalName ?? friend.username}
+                                        {friend.globalName && <span style={{ color: "var(--text-muted)", fontSize: 11, marginLeft: 6 }}>@{friend.username}</span>}
+                                    </span>
+                                    <div style={{
+                                        width: 16, height: 16, borderRadius: 3, flexShrink: 0,
+                                        border: `2px solid ${isSelected ? "var(--brand-experiment)" : "var(--background-modifier-accent)"}`,
+                                        background: isSelected ? "var(--brand-experiment)" : "transparent",
+                                        display: "flex", alignItems: "center", justifyContent: "center",
+                                    }}>
+                                        {isSelected && (
+                                            <svg width="10" height="8" viewBox="0 0 10 8" fill="none">
+                                                <path d="M1 4L3.5 6.5L9 1" stroke="white" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+                                            </svg>
+                                        )}
+                                    </div>
+                                </div>
+                            );
+                        })
+                    }
+                </div>
 
-            {/* Send */}
-            <Button
-                size={Button.Sizes.MEDIUM}
-                onClick={handleSend}
-                disabled={sending || selected.size === 0 || (!message.trim() && !attachments.length)}
-                style={{ width: "100%", fontWeight: 700 }}
-            >
-                {sending ? "Sending..." : `Mass DM (${selected.size})`}
-            </Button>
-        </div>
+                {progress && (
+                    <Paragraph className={Margins.bottom8} style={{
+                        color: progress.startsWith("Done") ? "var(--text-positive)" : "var(--text-muted)",
+                        fontSize: 13,
+                    }}>
+                        {progress}
+                    </Paragraph>
+                )}
+            </ModalContent>
+
+            <ModalFooter>
+                <Button
+                    onClick={handleSend}
+                    disabled={sending || selected.size === 0 || (!message.trim() && !attachments.length)}
+                    style={{ width: "100%", fontWeight: 700 }}
+                >
+                    {sending ? "Sending..." : `Mass DM (${selected.size})`}
+                </Button>
+            </ModalFooter>
+        </ModalRoot>
     );
 }
 
-// ─── Tabbed settings page ─────────────────────────────────────────────────────
+// ─── Chat bar button (DMs only) ───────────────────────────────────────────────
 
-type LowzTab = "modules" | "massdm";
-
-function LowzModulesTab() {
-    const [tab, setTab] = useState<LowzTab>("modules");
+const MassDMButton: ChatBarButtonFactory = ({ channel }) => {
+    // Only show in DM channels (type 1 = DM)
+    if (channel.type !== 1) return null;
 
     return (
-        <SettingsTab>
-            <Heading>Lowz Modules</Heading>
-            <TabBar
-                type="top"
-                look="brand"
-                className={Margins.bottom16}
-                selectedItem={tab}
-                onItemSelect={(id: LowzTab) => setTab(id)}
-            >
-                <TabBar.Item id="modules">Modules</TabBar.Item>
-                <TabBar.Item id="massdm">Mass DM</TabBar.Item>
-            </TabBar>
-
-            {tab === "modules" && <ModulesTab />}
-            {tab === "massdm" && <MassDMTab />}
-        </SettingsTab>
+        <ChatBarButton
+            tooltip="Mass DM"
+            onClick={() => openModal(modalProps => <MassDMModal modalProps={modalProps} />)}
+        >
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor">
+                <path d="M20 2H4a2 2 0 0 0-2 2v18l4-4h14a2 2 0 0 0 2-2V4a2 2 0 0 0-2-2ZM9 11H7V9h2v2Zm4 0h-2V9h2v2Zm4 0h-2V9h2v2Z" />
+            </svg>
+        </ChatBarButton>
     );
-}
+};
+
+// ─── Plugin ───────────────────────────────────────────────────────────────────
 
 export default definePlugin({
     name: "LowzModules",
     description: "Adds a Lowz Modules page to settings that swaps your voice modules.",
     authors: [EquicordDevs.nobody],
     required: true,
+    dependencies: ["ChatInputButtonAPI"],
+
+    chatBarButton: {
+        render: MassDMButton
+    },
 
     start() {
         SettingsPlugin.customEntries.push({
