@@ -7,7 +7,8 @@
 import { EquicordDevs } from "@utils/constants";
 import { openModal, ModalRoot, ModalHeader, ModalContent, ModalFooter, ModalSize } from "@utils/modal";
 import definePlugin, { makeRange } from "@utils/types";
-import { MediaEngineStore, Menu, React, Slider, Text } from "@webpack/common";
+import { Text } from "@components/index";
+import { MediaEngineStore, Menu, React, Slider } from "@webpack/common";
 
 // Fake displayed volumes per user (what Discord/observers see)
 const fakeVolumes = new Map<string, number>();
