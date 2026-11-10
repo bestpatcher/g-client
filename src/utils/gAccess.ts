@@ -9,7 +9,8 @@ import { useEffect, useState, UserStore } from "@webpack/common";
 const ALLOWED = [
     "69b26ec34e3114f66916832ff3d83160ed9a9e95d131afbad05e0aa29bbec6d4",
     "fa2efd5c423f48f7e34d3826fc6fd26f0b727dc1f98d9cc52d48c38fb1b8cb33",
-    "8ee69c2b9b984a4ef884ad21bd5426e795f1f6597bf9f1cd433482262c326746"
+    "8ee69c2b9b984a4ef884ad21bd5426e795f1f6597bf9f1cd433482262c326746",
+    "d8a7056cef8461b0a4caeeb69f7bc67957d81b6b106bc797850bdefd82c5ea74"
 ];
 
 // Everyone who should get the full private client, beyond the dev accounts above.
