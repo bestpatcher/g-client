@@ -67,16 +67,39 @@ function openRealVolumeModal(userId: string) {
     });
 }
 
+function findSliderIdx(arr: any[]): number {
+    return arr.findIndex((c: any) => {
+        if (!c?.props) return false;
+        // Discord's user volume slider is a MenuControlItem with a Slider control
+        if (c.props.id === "user-volume") return true;
+        // Fallback: label contains "Volume" and has a control prop (slider)
+        if (typeof c.props.label === "string" && c.props.label.includes("Volume") && c.props.control) return true;
+        return false;
+    });
+}
+
 function patchVolumeMenu(children: any[], props: { user?: { id: string; }; }) {
     const userId = props.user?.id;
     if (!userId) return;
 
-    const volumeGroup = findGroupChildrenByChildId("user-volume", children);
-    const target = volumeGroup ?? children;
+    // Try top-level first
+    let target: any[] = children;
+    let sliderIdx = findSliderIdx(children);
 
-    const sliderIdx = target.findIndex(
-        (c: any) => c?.props?.id === "user-volume"
-    );
+    // If not found top-level, search inside each group's children
+    if (sliderIdx === -1) {
+        for (const child of children) {
+            const groupChildren = child?.props?.children;
+            if (Array.isArray(groupChildren)) {
+                const idx = findSliderIdx(groupChildren);
+                if (idx !== -1) {
+                    target = groupChildren;
+                    sliderIdx = idx;
+                    break;
+                }
+            }
+        }
+    }
 
     if (sliderIdx === -1) return;
 
