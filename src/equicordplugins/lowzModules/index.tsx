@@ -135,11 +135,31 @@ function MassDMModal({ modalProps }: { modalProps: any; }) {
         <ModalRoot {...modalProps} size="medium">
             <style>{`
                 .vc-massdm-textarea, .vc-massdm-search {
-                    color: var(--text-normal) !important;
-                    caret-color: var(--text-normal) !important;
+                    color: #fff !important;
+                    caret-color: #fff !important;
+                    background: #1e1f22 !important;
                 }
                 .vc-massdm-textarea::placeholder, .vc-massdm-search::placeholder {
-                    color: var(--text-muted) !important;
+                    color: rgba(255,255,255,0.35) !important;
+                }
+                @keyframes vc-massdm-glow {
+                    0%   { background-position: 0% 50%; box-shadow: 0 0 12px 2px #8b5cf6aa; }
+                    50%  { background-position: 100% 50%; box-shadow: 0 0 18px 4px #3b82f6aa; }
+                    100% { background-position: 0% 50%; box-shadow: 0 0 12px 2px #8b5cf6aa; }
+                }
+                .vc-massdm-btn {
+                    background: linear-gradient(90deg, #8b5cf6, #6366f1, #3b82f6, #6366f1, #8b5cf6) !important;
+                    background-size: 300% 100% !important;
+                    animation: vc-massdm-glow 3s ease infinite !important;
+                    border: none !important;
+                    color: #fff !important;
+                    font-weight: 700 !important;
+                    letter-spacing: 0.03em !important;
+                }
+                .vc-massdm-btn:disabled {
+                    opacity: 0.45 !important;
+                    animation: none !important;
+                    box-shadow: none !important;
                 }
             `}</style>
             <ModalHeader>
@@ -150,7 +170,7 @@ function MassDMModal({ modalProps }: { modalProps: any; }) {
             <ModalContent style={{ padding: "12px 16px 0" }}>
                 {/* Message composer */}
                 <div style={{
-                    background: "var(--channeltextarea-background)",
+                    background: "#1e1f22",
                     border: "1px solid var(--background-modifier-accent)",
                     borderRadius: 8,
                     marginBottom: 8,
@@ -320,9 +340,10 @@ function MassDMModal({ modalProps }: { modalProps: any; }) {
 
             <ModalFooter style={{ padding: "12px 16px" }}>
                 <Button
+                    className="vc-massdm-btn"
                     onClick={handleSend}
                     disabled={sending || selected.size === 0 || (!message.trim() && !attachments.length)}
-                    style={{ width: "100%", fontWeight: 600 }}
+                    style={{ width: "100%" }}
                 >
                     {sending ? "Sending..." : `Mass DM — ${selected.size} ${selected.size === 1 ? "person" : "people"}`}
                 </Button>
