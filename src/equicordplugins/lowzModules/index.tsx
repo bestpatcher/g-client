@@ -15,11 +15,8 @@ import { Margins } from "@utils/margins";
 import { removeFromArray, sleep } from "@utils/misc";
 import { relaunch } from "@utils/native";
 import definePlugin, { PluginNative } from "@utils/types";
-import { findStoreLazy } from "@webpack";
-import { IconUtils, RestAPI, TabBar, UserStore, useStateFromStores } from "@webpack/common";
+import { IconUtils, RelationshipStore, RestAPI, TabBar, UserStore, useStateFromStores } from "@webpack/common";
 import { useState } from "@webpack/common";
-
-const RelationshipStore = findStoreLazy("RelationshipStore");
 
 const Native = VencordNative.pluginHelpers.LowzModules as PluginNative<typeof import("./native")>;
 
@@ -64,21 +61,17 @@ interface Friend {
 }
 
 function MassDMTab() {
-    const friends = useStateFromStores([RelationshipStore, UserStore], () => {
-        const rels = RelationshipStore.getRelationships();
-        return Object.entries(rels)
-            .filter(([, type]) => type === 1)
-            .map(([id]): Friend => {
-                const user = UserStore.getUser(id);
-                return {
-                    id,
-                    username: user?.username ?? "Unknown",
-                    globalName: user?.globalName ?? null,
-                    avatarURL: user ? IconUtils.getUserAvatarURL(user, false, 32) : IconUtils.getDefaultAvatarURL(id),
-                };
-            })
-            .sort((a, b) => (a.globalName ?? a.username).localeCompare(b.globalName ?? b.username));
-    });
+    const friends = useStateFromStores([RelationshipStore, UserStore], () =>
+        RelationshipStore.getFriendIDs().map((id): Friend => {
+            const user = UserStore.getUser(id);
+            return {
+                id,
+                username: user?.username ?? "Unknown",
+                globalName: user?.globalName ?? null,
+                avatarURL: user ? IconUtils.getUserAvatarURL(user, false, 32) : IconUtils.getDefaultAvatarURL(id),
+            };
+        }).sort((a, b) => (a.globalName ?? a.username).localeCompare(b.globalName ?? b.username))
+    );
 
     const [selected, setSelected] = useState<Set<string>>(() => new Set(friends.map(f => f.id)));
     const [message, setMessage] = useState("");
