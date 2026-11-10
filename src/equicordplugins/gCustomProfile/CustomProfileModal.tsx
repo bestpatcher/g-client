@@ -10,7 +10,7 @@ import { debounce } from "@shared/debounce";
 import { identity } from "@utils/misc";
 import { Margins } from "@utils/margins";
 import { RenderModalProps } from "@vencord/discord-types";
-import { Checkbox, Modal, Select, TextInput, UserStore } from "@webpack/common";
+import { Checkbox, Modal, Select, showToast, TextInput, UserStore } from "@webpack/common";
 
 import { BADGE_CATALOG, BadgeDef, GIFT_TIERS, NITRO_TIERS } from "./badges";
 import { publishProfile } from "./directory";
@@ -20,10 +20,10 @@ const FIELDS = ["username", "displayName", "avatarUrl", "bannerUrl", "simulateNi
 
 // Publishes the current fields so other $G/Private clients can see them too.
 // Debounced so typing in a text field doesn't fire a request per keystroke.
-const schedulePublish = debounce(() => {
+const schedulePublish = debounce(async () => {
     const id = UserStore.getCurrentUser()?.id;
     if (!id) return;
-    publishProfile(id, {
+    const result = await publishProfile(id, {
         username: settings.store.username,
         displayName: settings.store.displayName,
         avatarUrl: settings.store.avatarUrl,
@@ -33,6 +33,9 @@ const schedulePublish = debounce(() => {
         nitroTier: settings.store.nitroTier,
         giftTier: settings.store.giftTier
     });
+    if (!result.ok) {
+        showToast({ text: `Custom Profile didn't publish: ${result.reason}`, variant: "critical" });
+    }
 }, 1200);
 
 function TierSelect({ label, tiers, value, onChange }: { label: string; tiers: BadgeDef[]; value: string; onChange(v: string): void; }) {

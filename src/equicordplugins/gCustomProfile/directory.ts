@@ -50,7 +50,12 @@ export async function refreshDirectory() {
     }
 }
 
-export async function publishProfile(userId: string, profile: ProfileSource): Promise<boolean> {
+export interface PublishResult {
+    ok: boolean;
+    reason?: string;
+}
+
+export async function publishProfile(userId: string, profile: ProfileSource): Promise<PublishResult> {
     try {
         const res = await fetch(`${API_BASE}/v1/gclient/profiles`, {
             method: "POST",
@@ -62,14 +67,15 @@ export async function publishProfile(userId: string, profile: ProfileSource): Pr
         });
         const data = await res.json().catch(() => null);
         if (!res.ok || !data?.ok) {
-            logger.warn("Custom Profile publish rejected", data?.reason ?? res.status);
-            return false;
+            const reason = data?.reason ?? `HTTP ${res.status}`;
+            logger.warn("Custom Profile publish rejected", reason);
+            return { ok: false, reason };
         }
         directory = { ...directory, [userId]: profile };
-        return true;
+        return { ok: true };
     } catch (e) {
         logger.warn("Failed to publish Custom Profile", e);
-        return false;
+        return { ok: false, reason: e instanceof Error ? e.message : "Network error" };
     }
 }
 
