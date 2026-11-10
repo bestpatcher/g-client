@@ -6,7 +6,7 @@
 
 import { definePluginSettings } from "@api/Settings";
 import { EquicordDevs } from "@utils/constants";
-import definePlugin, { OptionType, StartAt } from "@utils/types";
+import definePlugin, { OptionType } from "@utils/types";
 
 const PLATFORMS = {
     Windows: { $os: "Windows", $browser: "Discord Client", $device: "Discord Client" },
@@ -24,7 +24,7 @@ type Platform = keyof typeof PLATFORMS;
 const settings = definePluginSettings({
     platform: {
         type: OptionType.SELECT,
-        description: "Platform to show other users. Applies on next Discord restart.",
+        description: "Platform to show other users. Requires restart to apply.",
         options: (Object.keys(PLATFORMS) as Platform[]).map((p, i) => ({
             label: p,
             value: p,
@@ -38,35 +38,20 @@ export default definePlugin({
     description: "Spoof your platform so others see you on a different device. Requires restart to apply.",
     authors: [EquicordDevs.nobody],
     settings,
-    startAt: StartAt.Init,
 
-    start() {
-        const originalSend = WebSocket.prototype.send;
-        const self = this;
+    patches: [
+        {
+            find: ".identifyStartTime))",
+            replacement: {
+                // properties object ends with $device: \i.browser — append our overrides after that
+                match: /(\$device\s*:\s*\i\.browser)/,
+                replace: "$1,...$self.getProperties()",
+            },
+        },
+    ],
 
-        WebSocket.prototype.send = function (data: string | ArrayBufferLike | Blob | ArrayBufferView) {
-            if (typeof data === "string") {
-                try {
-                    const json = JSON.parse(data);
-                    if (json.op === 2 && json.d?.properties) {
-                        const p = (settings.store.platform as Platform) ?? "Windows";
-                        json.d.properties = { ...json.d.properties, ...PLATFORMS[p] };
-                        data = JSON.stringify(json);
-                    }
-                } catch { }
-            }
-            return originalSend.call(this, data);
-        };
-
-        this._originalSend = originalSend;
+    getProperties(): Record<string, string> {
+        const p = (settings.store.platform as Platform) ?? "Windows";
+        return PLATFORMS[p];
     },
-
-    stop() {
-        if (this._originalSend) {
-            WebSocket.prototype.send = this._originalSend;
-            this._originalSend = undefined;
-        }
-    },
-
-    _originalSend: undefined as (WebSocket["send"]) | undefined,
 });
