@@ -15,8 +15,11 @@ import { Margins } from "@utils/margins";
 import { removeFromArray, sleep } from "@utils/misc";
 import { relaunch } from "@utils/native";
 import definePlugin, { PluginNative } from "@utils/types";
-import { IconUtils, RelationshipStore, RestAPI, TabBar, UserStore, useStateFromStores } from "@webpack/common";
+import { findStoreLazy } from "@webpack";
+import { IconUtils, RestAPI, TabBar, UserStore, useStateFromStores } from "@webpack/common";
 import { useState } from "@webpack/common";
+
+const RelationshipStore = findStoreLazy("RelationshipStore");
 
 const Native = VencordNative.pluginHelpers.LowzModules as PluginNative<typeof import("./native")>;
 
