@@ -5,18 +5,22 @@
  */
 
 import { ChatBarButton, ChatBarButtonFactory } from "@api/ChatButtons";
-import { definePluginSettings } from "@api/Settings";
 import { EquicordDevs } from "@utils/constants";
 import { Logger } from "@utils/Logger";
 import { sleep } from "@utils/misc";
-import definePlugin, { OptionType } from "@utils/types";
-import { Constants, RestAPI, showToast, UserStore } from "@webpack/common";
+import definePlugin from "@utils/types";
+import { Constants, RestAPI, showToast, useReducer, UserStore } from "@webpack/common";
 
 interface Hit {
     id: string;
     author: { id: string; };
     channel_id: string;
     type: number;
+}
+
+interface RestResponse {
+    status: number;
+    body: any;
 }
 
 interface RestError {
@@ -28,34 +32,21 @@ const logger = new Logger("MessagePurger");
 const DELETABLE_TYPES = [0, 19, 20];
 const DELETE_DELAY_MS = 350;
 
-const settings = definePluginSettings({
-    purging: {
-        type: OptionType.CUSTOM,
-        default: [] as string[]
-    }
-});
-
-const isPurging = (channelId: string) => Array.isArray(settings.store.purging) && settings.store.purging.includes(channelId);
-const setPurging = (channelId: string, on: boolean) => {
-    const current = Array.isArray(settings.store.purging) ? settings.store.purging : [];
-    settings.store.purging = on
-        ? [...current, channelId]
-        : current.filter(id => id !== channelId);
-};
+const purging = new Set<string>();
 
 async function withRetry<T>(request: () => Promise<T>): Promise<T> {
     while (true) {
         try {
             return await request();
         } catch (e) {
-            const { status, body } = e as RestError;
-            if (status !== 429) throw e;
-            await sleep((body?.retry_after ?? 1) * 1000);
+            const err = e as RestError;
+            if (err.status !== 429) throw e;
+            await sleep((err.body?.retry_after ?? 1) * 1000);
         }
     }
 }
 
-async function purge(guildId: string | null, channelId: string) {
+async function purgeChannel(guildId: string | null, channelId: string, rerender: () => void) {
     const me = UserStore.getCurrentUser().id;
     const skipped = new Set<string>();
     let deleted = 0;
@@ -64,53 +55,51 @@ async function purge(guildId: string | null, channelId: string) {
 
     async function deleteAll(hits: Hit[]) {
         for (const { id, channel_id } of hits) {
-            if (!isPurging(channelId)) return;
-
+            if (!purging.has(channelId)) return;
             try {
                 await withRetry(() => RestAPI.del({ url: Constants.Endpoints.MESSAGE(channel_id, id) }));
                 deleted++;
             } catch (e) {
-                logger.warn("Could not delete a message", e);
+                logger.warn("Could not delete message", e);
                 skipped.add(id);
             }
             await sleep(DELETE_DELAY_MS);
         }
     }
 
-    setPurging(channelId, true);
-    showToast({ text: "Purge started.", variant: "success", position: "bottom" });
+    purging.add(channelId);
+    rerender();
+    showToast({ text: "Purge started.", variant: "success" });
 
-    // Walks the channel history, which is always up to date, unlike search.
     let before: string | undefined;
-    while (isPurging(channelId)) {
-        const res = await withRetry(() => RestAPI.get({ url: `/channels/${channelId}/messages`, query: { limit: 100, before } }));
+    while (purging.has(channelId)) {
+        const res = await withRetry(() => RestAPI.get({
+            url: `/channels/${channelId}/messages`,
+            query: { limit: 100, ...(before ? { before } : {}) }
+        })) as RestResponse;
         const messages: Hit[] = res.body;
         if (!messages.length) break;
-
         before = messages[messages.length - 1].id;
         await deleteAll(messages.filter(isMine));
     }
 
-    // Search is the only way to reach the other channels of a server, but it can lag behind.
-    while (guildId && isPurging(channelId)) {
+    while (guildId && purging.has(channelId)) {
         const res = await withRetry(() => RestAPI.get({
             url: `/guilds/${guildId}/messages/search`,
             query: { author_id: me, include_nsfw: true, sort_by: "timestamp", sort_order: "desc" }
-        }));
+        })) as RestResponse;
         if (res.status === 202) {
             await sleep((res.body.retry_after ?? 1) * 1000);
             continue;
         }
-
-        const hits: Hit[] = res.body.messages.flat().filter(isMine);
-        logger.info("Search returned", hits.length, "deletable messages");
+        const hits: Hit[] = (res.body.messages as Hit[][]).flat().filter(isMine);
         if (!hits.length) break;
-
         await deleteAll(hits);
     }
 
-    setPurging(channelId, false);
-    showToast({ text: `Purged ${deleted} messages${skipped.size ? `, skipped ${skipped.size}` : ""}.`, variant: "success", position: "bottom" });
+    purging.delete(channelId);
+    rerender();
+    showToast({ text: `Purged ${deleted} messages${skipped.size ? `, skipped ${skipped.size}` : ""}.`, variant: "success" });
 }
 
 function PurgeIcon() {
@@ -122,49 +111,47 @@ function PurgeIcon() {
 }
 
 const PurgeButton: ChatBarButtonFactory = ({ channel, isMainChat }) => {
-    const { purging: purgingChannels } = settings.use(["purging"]);
-    const purging = Array.isArray(purgingChannels) && purgingChannels.includes(channel.id);
+    const [, rerender] = useReducer(x => x + 1, 0);
+    const isPurging = purging.has(channel.id);
 
     if (!isMainChat) return null;
 
     return (
         <ChatBarButton
-            tooltip={purging ? "Stop purging" : "Delete all your messages here"}
+            tooltip={isPurging ? "Stop purging" : "Delete all your messages here"}
             onClick={() => {
-                if (purging) {
-                    setPurging(channel.id, false);
-                    showToast({ text: "Purge stopped.", variant: "success", position: "bottom" });
+                if (isPurging) {
+                    purging.delete(channel.id);
+                    rerender();
+                    showToast({ text: "Purge stopped.", variant: "success" });
                     return;
                 }
-
-                purge(channel.guild_id ?? null, channel.id).catch(e => {
+                purgeChannel(channel.guild_id ?? null, channel.id, rerender).catch(e => {
                     logger.error("Purge failed", e);
-                    setPurging(channel.id, false);
-                    showToast({ text: `Purge failed${(e as RestError).status ? ` with error ${(e as RestError).status}` : ""}.`, variant: "critical", position: "bottom" });
+                    purging.delete(channel.id);
+                    rerender();
+                    showToast({ text: `Purge failed${(e as RestError).status ? ` (${(e as RestError).status})` : ""}.`, variant: "danger" });
                 });
             }}
         >
-            <span style={{ color: purging ? "var(--status-danger)" : undefined }}><PurgeIcon /></span>
+            <span style={{ color: isPurging ? "var(--status-danger)" : undefined }}>
+                <PurgeIcon />
+            </span>
         </ChatBarButton>
     );
 };
 
 export default definePlugin({
     name: "MessagePurger",
-    description: "Adds a button next to the message box that deletes all your messages in that DM or server one at a time, newest first.",
+    description: "Adds a button next to the message box that deletes all your messages in that channel or server, newest first.",
     authors: [EquicordDevs.nobody],
-    settings,
 
     chatBarButton: {
         icon: PurgeIcon,
         render: PurgeButton
     },
 
-    start() {
-        settings.store.purging = [];
-    },
-
     stop() {
-        settings.store.purging = [];
+        purging.clear();
     }
 });
