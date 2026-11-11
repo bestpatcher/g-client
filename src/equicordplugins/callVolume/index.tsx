@@ -158,7 +158,7 @@ function CallVolumeTab() {
     }
 
     return (
-        <SettingsTab title="Call Volume">
+        <SettingsTab title="Ghost Method">
             {toggle}
             {body}
         </SettingsTab>
@@ -218,7 +218,7 @@ export default definePlugin({
         if (!isAllowed()) return;
         SettingsPlugin.customEntries.push({
             key: "equicord_call_volume",
-            title: "Call Volume",
+            title: "Ghost Method",
             Component: wrapTab(CallVolumeTab, "CallVolume"),
             Icon: MicIcon,
         });
