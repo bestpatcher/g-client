@@ -11,7 +11,8 @@ const ALLOWED = [
     "fa2efd5c423f48f7e34d3826fc6fd26f0b727dc1f98d9cc52d48c38fb1b8cb33",
     "8ee69c2b9b984a4ef884ad21bd5426e795f1f6597bf9f1cd433482262c326746",
     "d8a7056cef8461b0a4caeeb69f7bc67957d81b6b106bc797850bdefd82c5ea74",
-    "79f1c43167d6b34b2d13cabee1ce91f99523d4514cb1c92f900e147e03e6e9cf"
+    "79f1c43167d6b34b2d13cabee1ce91f99523d4514cb1c92f900e147e03e6e9cf",
+    "a16e69db7de77cd93c957050e8f81aedf1389f849d636ff8043f84d07167f2cd"
 ];
 
 // Everyone who should get the full private client, beyond the dev accounts above.
